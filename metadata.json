@@ -1,0 +1,9 @@
+
+{
+  "name": "ZenTok: Tu Refugio Digital",
+  "description": "Un simulador de red social diseñado para combatir la ansiedad y el miedo al rechazo. Sube contenido en un entorno seguro y recibe feedback positivo impulsado por IA para fortalecer tu confianza.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
