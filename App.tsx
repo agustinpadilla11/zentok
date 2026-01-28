@@ -22,7 +22,7 @@ interface PostGrowthConfig extends VideoPost {
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'feed' | 'profile'>('feed');
+  const [activeTab, setActiveTab] = useState<'home' | 'profile'>('home');
   const [selectedPostIndex, setSelectedPostIndex] = useState<number | null>(null);
   const [posts, setPosts] = useState<PostGrowthConfig[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -89,7 +89,6 @@ const App: React.FC = () => {
       const { data, error } = await supabase
         .from('videos')
         .select('*, profiles(username, avatar_url, display_name, bio)')
-        .eq('user_id', session.user.id) // Only see own videos
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -276,7 +275,8 @@ const App: React.FC = () => {
       const { data: vData, error: dbError } = await supabase.from('videos').insert({
         user_id: session.user.id,
         video_url: publicUrl,
-        caption: ""
+        caption: "",
+        created_at: new Date().toISOString() // Ensure timestamp is set
       }).select().single();
 
       if (dbError) throw dbError;
@@ -362,7 +362,7 @@ const App: React.FC = () => {
     } else {
       setSession(null);
       setPosts([]);
-      setActiveTab('feed');
+      setActiveTab('home');
       setSelectedPostIndex(null);
     }
   };
@@ -377,7 +377,7 @@ const App: React.FC = () => {
     <div className="relative h-[100dvh] w-full bg-black overflow-hidden select-none">
       <NotificationCenter notifications={notifications} />
 
-      {showOnboarding && activeTab === 'feed' && (
+      {showOnboarding && activeTab === 'home' && (
         <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-12 text-center animate-fade-in">
           <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center mb-8 shadow-2xl">
             <span className="text-black text-4xl font-black italic">Z</span>
@@ -390,7 +390,7 @@ const App: React.FC = () => {
             onClick={() => setShowOnboarding(false)}
             className="w-full max-w-xs py-5 bg-white text-black font-black rounded-2xl hover:scale-105 transition-transform text-lg"
           >
-            ENTRAR AL FEED
+            ENTRAR
           </button>
         </div>
       )}
@@ -408,7 +408,7 @@ const App: React.FC = () => {
             <VideoItem
               post={posts[selectedPostIndex]}
               isActive={true}
-              onLike={() => addNotification('Tú', 'like', '¡Te ha gustado tu propio video!')}
+              onLike={() => addNotification('Tú', 'like', '¡Has reaccionado a este video!')}
             />
             <button
               onClick={closeSingleView}
@@ -420,13 +420,23 @@ const App: React.FC = () => {
             </button>
           </div>
         ) : (
-          activeTab === 'feed' ? (
-            <VideoFeed posts={posts} onLike={() => addNotification('Tú', 'like', '¡Te ha gustado tu propio video!')} />
+          activeTab === 'home' ? (
+            <VideoFeed posts={posts} onLike={() => addNotification('Tú', 'like', '¡Has reaccionado a este video!')} />
           ) : (
             <ProfileView
               user={user}
-              posts={posts}
-              onSelectPost={(idx) => setSelectedPostIndex(idx)}
+              posts={posts.filter(p => {
+                // Determine the owner of the post. In formattedPosts, we store username.
+                // We need to check if the post belongs to the current logged in user.
+                // The post object returned by loadPosts has the profiles table data.
+                return p.username === user.username;
+              })}
+              onSelectPost={(idx) => {
+                // Map the filtered index back to the real index in 'posts'
+                const profilePosts = posts.filter(p => p.username === user.username);
+                const realIdx = posts.findIndex(p => p.id === profilePosts[idx].id);
+                setSelectedPostIndex(realIdx);
+              }}
               onUpdateUser={(u, file) => handleUpdateProfile(u, file)}
               onLogout={handleLogout}
             />
@@ -436,9 +446,9 @@ const App: React.FC = () => {
 
       {selectedPostIndex === null && (
         <nav className="fixed bottom-0 inset-x-0 h-20 bg-black/90 backdrop-blur-xl border-t border-white/5 flex items-center justify-around z-[80] pb-6">
-          <button onClick={() => setActiveTab('feed')} className={`flex flex-col items-center space-y-1 ${activeTab === 'feed' ? 'text-white' : 'text-zinc-600'}`}>
-            <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>
-            <span className="text-[9px] font-black uppercase tracking-widest">Feed</span>
+          <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center space-y-1 ${activeTab === 'home' ? 'text-white' : 'text-zinc-600'}`}>
+            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+            <span className="text-[9px] font-black uppercase tracking-widest">Home</span>
           </button>
 
           <button onClick={() => setIsUploadOpen(true)} className="relative -top-3">
