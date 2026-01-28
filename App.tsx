@@ -124,26 +124,43 @@ const App: React.FC = () => {
           likesTarget = Math.floor(viewsTarget * (Math.random() * 0.15 + 0.05));
           const sharesTarget = Math.floor(likesTarget * (Math.random() * 0.2));
           const savesTarget = Math.floor(likesTarget * (Math.random() * 0.3));
+          const growthExponent = 0.6 + Math.random() * 0.4;
+          const timestamp = new Date(v.created_at).getTime();
+
+          const elapsedMs = Date.now() - timestamp;
+          const elapsedMins = elapsedMs / (1000 * 60);
+          const totalWindowMins = 1440;
+          const progress = Math.min(1, Math.pow(Math.max(0, elapsedMins) / totalWindowMins, growthExponent));
+
+          // Calculate initial state based on time
+          const currentViews = Math.floor(viewsTarget * progress);
+          const currentLikes = Math.floor(likesTarget * progress);
+          const currentShares = Math.floor(sharesTarget * progress);
+          const currentSaves = Math.floor(savesTarget * progress);
+
+          // Calculate how many comments should be visible
+          const commentsCount = Math.floor(aiCommentsPool.length * progress);
+          const initialComments = aiCommentsPool.slice(0, commentsCount);
 
           return {
             id: v.id,
             url: v.video_url,
             username: v.profiles?.username || 'usuario',
             caption: v.caption || "",
-            views: baseViews,
-            likes: Math.floor(baseViews * 0.1),
-            shares: 0,
-            saves: 0,
-            comments: [],
-            timestamp: new Date(v.created_at).getTime(),
+            views: currentViews,
+            likes: currentLikes,
+            shares: currentShares,
+            saves: currentSaves,
+            comments: initialComments,
+            timestamp,
             targetViews: viewsTarget,
             targetLikes: likesTarget,
             targetShares: sharesTarget,
             targetSaves: savesTarget,
             aiCommentsPool,
-            growthExponent: 0.6 + Math.random() * 0.4,
-            lastCommentIndex: 0,
-            liveViewers: Math.floor(Math.random() * 50)
+            growthExponent,
+            lastCommentIndex: commentsCount,
+            liveViewers: elapsedMins < totalWindowMins ? Math.floor(Math.random() * 50) : 0
           };
         }));
         setPosts(formattedPosts);
@@ -169,8 +186,22 @@ const App: React.FC = () => {
           const elapsedMins = elapsedMs / (1000 * 60);
           const totalWindowMins = 1440;
 
-          if (elapsedMins > totalWindowMins && post.views >= post.targetViews) {
-            return post;
+          if (elapsedMins >= totalWindowMins) {
+            // Ensure stats are exactly at target if 24h passed
+            if (post.views === post.targetViews && post.lastCommentIndex === post.aiCommentsPool.length) {
+              return post;
+            }
+            changed = true;
+            return {
+              ...post,
+              views: post.targetViews,
+              likes: post.targetLikes,
+              shares: post.targetShares,
+              saves: post.targetSaves,
+              comments: post.aiCommentsPool,
+              lastCommentIndex: post.aiCommentsPool.length,
+              liveViewers: 0
+            };
           }
 
           changed = true;
