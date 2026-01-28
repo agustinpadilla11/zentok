@@ -324,6 +324,18 @@ const App: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      alert("Error al cerrar sesión: " + error.message);
+    } else {
+      setSession(null);
+      setPosts([]);
+      setActiveTab('feed');
+      setSelectedPostIndex(null);
+    }
+  };
+
   const closeSingleView = () => setSelectedPostIndex(null);
 
   if (!session) {
@@ -380,7 +392,13 @@ const App: React.FC = () => {
           activeTab === 'feed' ? (
             <VideoFeed posts={posts} onLike={() => addNotification('Tú', 'like', '¡Te ha gustado tu propio video!')} />
           ) : (
-            <ProfileView user={user} posts={posts} onSelectPost={(idx) => setSelectedPostIndex(idx)} onUpdateUser={(u, file) => handleUpdateProfile(u, file)} />
+            <ProfileView
+              user={user}
+              posts={posts}
+              onSelectPost={(idx) => setSelectedPostIndex(idx)}
+              onUpdateUser={(u, file) => handleUpdateProfile(u, file)}
+              onLogout={handleLogout}
+            />
           )
         )}
       </div>

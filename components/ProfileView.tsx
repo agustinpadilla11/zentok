@@ -7,9 +7,10 @@ interface ProfileViewProps {
   posts: VideoPost[];
   onSelectPost: (index: number) => void;
   onUpdateUser: (updatedUser: Partial<UserProfile>, pfpFile?: File) => void | Promise<void>;
+  onLogout: () => void;
 }
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ user, posts, onSelectPost, onUpdateUser }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({ user, posts, onSelectPost, onUpdateUser, onLogout }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempUser, setTempUser] = useState(user);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,9 +66,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, posts, onSelectP
               {user.bio}
             </p>
 
-            <button onClick={() => setIsEditing(true)} className="px-10 py-2.5 bg-zinc-900 rounded-full text-xs font-black uppercase tracking-widest border border-white/5 hover:bg-zinc-800 active:scale-95 transition-all">
-              Editar Perfil
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-8 py-2.5 bg-zinc-900 rounded-full text-xs font-black uppercase tracking-widest border border-white/5 hover:bg-zinc-800 active:scale-95 transition-all"
+              >
+                Editar Perfil
+              </button>
+              <button
+                onClick={onLogout}
+                className="px-8 py-2.5 bg-red-500/10 text-red-500 rounded-full text-xs font-black uppercase tracking-widest border border-red-500/20 hover:bg-red-500/20 active:scale-95 transition-all"
+              >
+                Salir
+              </button>
+            </div>
           </div>
         )}
       </div>
