@@ -298,13 +298,14 @@ const App: React.FC = () => {
 
       const { error: dbError } = await supabase
         .from('profiles')
-        .update({
-          display_name: updatedData.displayName,
-          bio: updatedData.bio,
+        .upsert({
+          id: session.user.id,
+          username: user.username, // Requerido para crear el registro si no existe
+          display_name: updatedData.displayName || user.displayName,
+          bio: updatedData.bio || user.bio,
           avatar_url: avatarUrl,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', session.user.id);
+        });
 
       if (dbError) throw dbError;
 
