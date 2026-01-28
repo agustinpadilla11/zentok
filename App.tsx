@@ -261,8 +261,10 @@ const App: React.FC = () => {
     setIsUploadOpen(false);
 
     try {
-      // Garantizar que el perfil exista (por si el trigger falló para este usuario)
-      await supabase.from('profiles').upsert({
+      console.log("Iniciando subida para usuario:", session.user.id);
+
+      // 1. Garantizar perfil
+      const { error: profileError } = await supabase.from('profiles').upsert({
         id: session.user.id,
         username: user.username,
         display_name: user.displayName,
@@ -270,23 +272,47 @@ const App: React.FC = () => {
         updated_at: new Date().toISOString()
       });
 
-      const fileName = `${Date.now()}-${videoFile.name}`;
+      if (profileError) {
+        console.error("Error al crear/actualizar perfil:", profileError);
+        throw new Error(`Error de perfil: ${profileError.message}`);
+      }
+
+      // 2. Subir archivo
+      const fileName = `${Date.now()}-${videoFile.name.replace(/\s/g, '_')}`;
+      const filePath = `${session.user.id}/${fileName}`;
+
+      console.log("Subiendo archivo a storage:", filePath);
       const { data: storageData, error: storageError } = await supabase.storage
         .from('videos')
-        .upload(`${session.user.id}/${fileName}`, videoFile);
+        .upload(filePath, videoFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (storageError) throw storageError;
+      if (storageError) {
+        console.error("Error de Storage:", storageError);
+        throw new Error(`Error de Storage: ${storageError.message}`);
+      }
 
+      // 3. Obtener URL pública
       const { data: { publicUrl } } = supabase.storage
         .from('videos')
-        .getPublicUrl(`${session.user.id}/${fileName}`);
+        .getPublicUrl(filePath);
 
-      const { data: vData, error: dbError } = await supabase.from('videos').insert({
+      console.log("URL pública generada:", publicUrl);
+
+      // 4. Insertar registro de video
+      const { error: dbError } = await supabase.from('videos').insert({
         user_id: session.user.id,
         video_url: publicUrl,
         caption: "",
-        created_at: new Date().toISOString() // Ensure timestamp is set
-      }).select().single();
+        created_at: new Date().toISOString()
+      });
+
+      if (dbError) {
+        console.error("Error al insertar video en DB:", dbError);
+        throw new Error(`Error de Base de Datos: ${dbError.message}`);
+      }
 
       if (dbError) throw dbError;
 
