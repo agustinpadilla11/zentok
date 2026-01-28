@@ -261,6 +261,15 @@ const App: React.FC = () => {
     setIsUploadOpen(false);
 
     try {
+      // Garantizar que el perfil exista (por si el trigger falló para este usuario)
+      await supabase.from('profiles').upsert({
+        id: session.user.id,
+        username: user.username,
+        display_name: user.displayName,
+        avatar_url: user.avatar,
+        updated_at: new Date().toISOString()
+      });
+
       const fileName = `${Date.now()}-${videoFile.name}`;
       const { data: storageData, error: storageError } = await supabase.storage
         .from('videos')
