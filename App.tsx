@@ -264,13 +264,16 @@ const App: React.FC = () => {
       console.log("Iniciando subida para usuario:", session.user.id);
 
       // 1. Garantizar perfil
+      const finalUsername = user.username || `user_${session.user.id.substring(0, 5)}`;
+      const finalDisplayName = user.displayName || 'Usuario Zen';
+
       const { error: profileError } = await supabase.from('profiles').upsert({
         id: session.user.id,
-        username: user.username,
-        display_name: user.displayName,
+        username: finalUsername,
+        display_name: finalDisplayName,
         avatar_url: user.avatar,
         updated_at: new Date().toISOString()
-      });
+      }, { onConflict: 'id' });
 
       if (profileError) {
         console.error("Error al crear/actualizar perfil:", profileError);
