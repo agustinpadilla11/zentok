@@ -314,9 +314,7 @@ const App: React.FC = () => {
         throw new Error(`Error de Base de Datos: ${dbError.message}`);
       }
 
-      if (dbError) throw dbError;
-
-      // Reload all posts to include the new one
+      // 5. Recargar y notificar
       await loadPosts();
       addNotification('Sistema', 'follow', 'Tu video se ha subido correctamente.');
 
