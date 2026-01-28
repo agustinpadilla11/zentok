@@ -32,9 +32,11 @@ ALTER TABLE public.videos ENABLE ROW LEVEL SECURITY;
 -- 4. Limpiar y recrear políticas para Profiles
 DROP POLICY IF EXISTS "Perfiles públicos" ON public.profiles;
 DROP POLICY IF EXISTS "Usuarios pueden editar su propio perfil" ON public.profiles;
+DROP POLICY IF EXISTS "Usuarios pueden insertar su propio perfil" ON public.profiles;
 
 CREATE POLICY "Perfiles públicos" ON public.profiles FOR SELECT USING (true);
-CREATE POLICY "Usuarios pueden editar su propio perfil" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Usuarios pueden insertar su propio perfil" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Usuarios pueden editar su propio perfil" ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- 5. Limpiar y recrear políticas para Videos
 DROP POLICY IF EXISTS "Videos públicos" ON public.videos;
@@ -64,3 +66,21 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- 7. Políticas de Almacenamiento (Storage) - Ejecutar si los buckets existen
+-- Bucket: videos
+-- SELECT: Público
+-- INSERT/DELETE: Solo dueño carpte (auth.uid() = foldername)
+-- (Nota: Estas se aplican a la tabla storage.objects)
+
+/* 
+-- COPIAR Y PEGAR ESTO EN EL SQL EDITOR PARA STORAGE --
+INSERT INTO storage.buckets (id, name, public) VALUES ('videos', 'videos', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Videos públicos" ON storage.objects FOR SELECT USING (bucket_id = 'videos');
+CREATE POLICY "Subida de videos" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'videos' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Avatars públicos" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
+CREATE POLICY "Subida de avatars" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+*/
