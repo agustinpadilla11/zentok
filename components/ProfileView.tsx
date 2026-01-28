@@ -6,7 +6,7 @@ interface ProfileViewProps {
   user: UserProfile;
   posts: VideoPost[];
   onSelectPost: (index: number) => void;
-  onUpdateUser: (updatedUser: UserProfile) => void;
+  onUpdateUser: (updatedUser: Partial<UserProfile>, pfpFile?: File) => void | Promise<void>;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ user, posts, onSelectPost, onUpdateUser }) => {
@@ -15,7 +15,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, posts, onSelectP
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
-    onUpdateUser(tempUser);
+    onUpdateUser({ displayName: tempUser.displayName, bio: tempUser.bio });
     setIsEditing(false);
   };
 
@@ -23,8 +23,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, posts, onSelectP
     const elapsedMins = (Date.now() - timestamp) / (1000 * 60);
     // Si tiene menos de 2 minutos, mostrar "Procesando" o un número muy bajo
     if (elapsedMins < 2 && views < 5) return "0";
-    if (views >= 1000000) return (views/1000000).toFixed(1) + 'M';
-    if (views >= 1000) return (views/1000).toFixed(1) + 'k';
+    if (views >= 1000000) return (views / 1000000).toFixed(1) + 'M';
+    if (views >= 1000) return (views / 1000).toFixed(1) + 'k';
     return views.toString();
   };
 
@@ -35,14 +35,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, posts, onSelectP
           <div className="w-32 h-32 rounded-full border-4 border-zinc-900 overflow-hidden relative">
             <img src={user.avatar} className="w-full h-full object-cover" alt="pfp" />
           </div>
-          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" 
-            onChange={e => e.target.files?.[0] && onUpdateUser({...user, avatar: URL.createObjectURL(e.target.files[0])})} />
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) {
+                onUpdateUser({ ...user, avatar: URL.createObjectURL(file) }, file);
+              }
+            }}
+          />
         </div>
-        
+
         {isEditing ? (
           <div className="w-full max-w-xs space-y-4">
-            <input className="w-full bg-zinc-900 border-none rounded-xl p-3 text-center font-bold text-white focus:ring-1 focus:ring-white/20 transition-all" value={tempUser.displayName} onChange={e => setTempUser({...tempUser, displayName: e.target.value})} />
-            <textarea className="w-full bg-zinc-900 border-none rounded-xl p-3 text-center text-sm h-20 resize-none text-white focus:ring-1 focus:ring-white/20 transition-all" value={tempUser.bio} onChange={e => setTempUser({...tempUser, bio: e.target.value})} />
+            <input className="w-full bg-zinc-900 border-none rounded-xl p-3 text-center font-bold text-white focus:ring-1 focus:ring-white/20 transition-all" value={tempUser.displayName} onChange={e => setTempUser({ ...tempUser, displayName: e.target.value })} />
+            <textarea className="w-full bg-zinc-900 border-none rounded-xl p-3 text-center text-sm h-20 resize-none text-white focus:ring-1 focus:ring-white/20 transition-all" value={tempUser.bio} onChange={e => setTempUser({ ...tempUser, bio: e.target.value })} />
             <div className="flex space-x-2">
               <button onClick={handleSave} className="flex-1 py-3 bg-white text-black rounded-xl font-black text-sm uppercase active:scale-95 transition-transform">Listo</button>
             </div>
@@ -76,7 +86,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, posts, onSelectP
         ) : (
           <div className="col-span-3 py-20 text-center">
             <div className="text-zinc-700 mb-2">
-               <svg className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+              <svg className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
             </div>
             <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest">Aún no hay videos</p>
           </div>

@@ -62,11 +62,14 @@ const App: React.FC = () => {
   }, []);
 
   const syncUserProfile = (authUser: any) => {
+    const meta = authUser.user_metadata || {};
+    const emailPrefix = authUser.email ? authUser.email.split('@')[0] : 'usuario';
+
     setUser({
-      username: authUser.user_metadata.username || authUser.email.split('@')[0],
-      displayName: authUser.user_metadata.username || authUser.email.split('@')[0],
-      bio: 'Soltando el miedo un video a la vez.',
-      avatar: authUser.user_metadata.avatar_url || `https://picsum.photos/seed/${authUser.id}/200/200`,
+      username: meta.username || emailPrefix,
+      displayName: meta.display_name || meta.username || emailPrefix,
+      bio: meta.bio || 'Soltando el miedo un video a la vez.',
+      avatar: meta.avatar_url || `https://picsum.photos/seed/${authUser.id}/200/200`,
       followers: 0,
       following: 0,
       totalLikes: 0
@@ -85,17 +88,15 @@ const App: React.FC = () => {
       // Fetch videos join profiles
       const { data, error } = await supabase
         .from('videos')
-        .select('*, profiles(username, avatar_url, display_name)')
+        .select('*, profiles(username, avatar_url, display_name, bio)')
+        .eq('user_id', session.user.id) // Only see own videos
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       if (data) {
-        const luck = Math.random();
         // Map DB data to our App's Growth format
         const formattedPosts: PostGrowthConfig[] = await Promise.all(data.map(async (v: any) => {
-          // Check if this post already has AI comments pool, if not generate one
-          // In a real app we'd store the pool in DB, here we re-gen if it's new to the session
           const aiCommentsData = await generateSupportiveComments(v.caption || "un video auténtico");
           const aiCommentsPool = aiCommentsData.map((c, idx) => ({
             id: `c-${v.id}-${idx}`,
@@ -105,25 +106,44 @@ const App: React.FC = () => {
             likes: Math.floor(Math.random() * 50)
           }));
 
+          // Sophisticated stats randomization
+          const roll = Math.random();
+          let baseViews, viewsTarget, likesTarget;
+
+          if (roll > 0.95) { // 5% Viral
+            baseViews = Math.floor(Math.random() * 5000) + 2000;
+            viewsTarget = baseViews + Math.floor(Math.random() * 50000) + 10000;
+          } else if (roll > 0.7) { // 25% Popular
+            baseViews = Math.floor(Math.random() * 500) + 100;
+            viewsTarget = baseViews + Math.floor(Math.random() * 2000) + 500;
+          } else { // 70% Normal/Low
+            baseViews = Math.floor(Math.random() * 50);
+            viewsTarget = baseViews + Math.floor(Math.random() * 200) + 10;
+          }
+
+          likesTarget = Math.floor(viewsTarget * (Math.random() * 0.15 + 0.05));
+          const sharesTarget = Math.floor(likesTarget * (Math.random() * 0.2));
+          const savesTarget = Math.floor(likesTarget * (Math.random() * 0.3));
+
           return {
             id: v.id,
             url: v.video_url,
             username: v.profiles?.username || 'usuario',
             caption: v.caption || "",
-            views: v.views_count || 0,
-            likes: v.likes_count || 0,
-            shares: v.shares_count || 0,
-            saves: v.saves_count || 0,
-            comments: [], // Comments grow with simulation
+            views: baseViews,
+            likes: Math.floor(baseViews * 0.1),
+            shares: 0,
+            saves: 0,
+            comments: [],
             timestamp: new Date(v.created_at).getTime(),
-            targetViews: v.views_count + 500, // Fake target for growth
-            targetLikes: v.likes_count + 50,
-            targetShares: 10,
-            targetSaves: 20,
+            targetViews: viewsTarget,
+            targetLikes: likesTarget,
+            targetShares: sharesTarget,
+            targetSaves: savesTarget,
             aiCommentsPool,
-            growthExponent: 0.8,
+            growthExponent: 0.6 + Math.random() * 0.4,
             lastCommentIndex: 0,
-            liveViewers: 0
+            liveViewers: Math.floor(Math.random() * 50)
           };
         }));
         setPosts(formattedPosts);
@@ -235,10 +255,71 @@ const App: React.FC = () => {
       addNotification('Sistema', 'follow', 'Tu video se ha subido correctamente.');
 
     } catch (err: any) {
-      alert("Error al subir: " + err.message);
+      console.error("Upload error:", err);
+      let msg = err.message;
+      if (msg.includes("bucket")) {
+        msg = "El bucket 'videos' no existe en Supabase Storage. Por favor, créalo y ponlo como público.";
+      }
+      alert("Error al subir: " + msg);
     } finally {
       setIsLoading(false);
       setActiveTab('profile');
+    }
+  };
+
+  const handleUpdateProfile = async (updatedData: Partial<UserProfile>, pfpFile?: File) => {
+    if (!session?.user) return;
+    setIsLoading(true);
+
+    try {
+      let avatarUrl = updatedData.avatar;
+
+      if (pfpFile) {
+        const fileExt = pfpFile.name.split('.').pop();
+        const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, pfpFile, { upsert: true });
+
+        if (uploadError) {
+          if (uploadError.message.includes('bucket')) {
+            throw new Error("El bucket 'avatars' no existe. Créalo en Supabase Storage (Público).");
+          }
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+
+        avatarUrl = publicUrl;
+      }
+
+      const { error: dbError } = await supabase
+        .from('profiles')
+        .update({
+          display_name: updatedData.displayName,
+          bio: updatedData.bio,
+          avatar_url: avatarUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', session.user.id);
+
+      if (dbError) throw dbError;
+
+      setUser(prev => ({
+        ...prev,
+        displayName: updatedData.displayName || prev.displayName,
+        bio: updatedData.bio || prev.bio,
+        avatar: avatarUrl || prev.avatar
+      }));
+
+      addNotification('Sistema', 'follow', 'Perfil actualizado correctamente.');
+    } catch (err: any) {
+      alert("Error al actualizar perfil: " + err.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -259,7 +340,7 @@ const App: React.FC = () => {
           </div>
           <h1 className="text-4xl font-black mb-4 tracking-tighter uppercase">ZenTok</h1>
           <p className="text-zinc-500 mb-12 max-w-xs leading-relaxed font-medium">
-            Hola @{user.username}. Tu video se distribuirá orgánicamente durante las próximas 24 horas en un entorno seguro.
+            Hola @{user.username}. Tu contenido se distribuirá orgánicamente en un entorno seguro y positivo.
           </p>
           <button
             onClick={() => setShowOnboarding(false)}
@@ -298,7 +379,7 @@ const App: React.FC = () => {
           activeTab === 'feed' ? (
             <VideoFeed posts={posts} onLike={() => addNotification('Tú', 'like', '¡Te ha gustado tu propio video!')} />
           ) : (
-            <ProfileView user={user} posts={posts} onSelectPost={(idx) => setSelectedPostIndex(idx)} onUpdateUser={setUser} />
+            <ProfileView user={user} posts={posts} onSelectPost={(idx) => setSelectedPostIndex(idx)} onUpdateUser={(u, file) => handleUpdateProfile(u, file)} />
           )
         )}
       </div>

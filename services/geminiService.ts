@@ -27,20 +27,30 @@ export const generateSupportiveComments = async (caption: string): Promise<Parti
       }
     });
 
-    const prompt = `Eres una comunidad de personas extremadamente amables, empáticas y positivas en una red social similar a TikTok.
-    Genera 8 comentarios cortos (máximo 15 palabras por comentario), realistas y variados para un video que tiene este pie de foto: "${caption || 'un video auténtico'}".
+    const prompt = `Eres un grupo de usuarios diversos en una red social similar a TikTok.
+    Genera 10 comentarios cortos (máximo 12 palabras por comentario), realistas y variados para un video con este pie de foto: "${caption || 'un video auténtico'}".
+    
+    Distribución de comentarios:
+    - 60%: Muy positivos y entusiastas (ej: "¡Esto es increíble!", "Necesitaba ver esto hoy ✨").
+    - 25%: Neutrales, curiosos o casuales (ej: "¿Qué filtro usaste?", "Interesante perspectiva", "Ok, me gusta").
+    - 15%: Críticas constructivas mansas o comentarios "no tan buenos" pero sin ser tóxicos (ej: "Siento que le faltó luz", "No entendí muy bien el mensaje", "Un poco largo el video").
     
     Reglas:
-    - El objetivo es que el creador se sienta validado, seguro y talentoso.
-    - Usa diferentes tonos: entusiasta, reflexivo, casual, y algunos con muchos emojis.
-    - Usa lenguaje natural de redes sociales.
-    - Los nombres de usuario deben parecer reales (ej: maria_vibe, jose.luces, etc).
-    - Evita cualquier negatividad.`;
+    - Usa lenguaje natural de redes sociales con errores menores, abreviaturas y emojis.
+    - Los nombres de usuario deben parecer reales (ej: lucia.99, x_pablo_x, dev_master).
+    - Evita que todos suenen igual.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const jsonStr = response.text().trim();
-    
+    let jsonStr = response.text().trim();
+
+    // Clean JSON if Gemini returns markdown blocks
+    if (jsonStr.startsWith("```json")) {
+      jsonStr = jsonStr.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+    } else if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```\n?/, "").replace(/\n?```$/, "");
+    }
+
     return JSON.parse(jsonStr);
   } catch (error) {
     console.error("Error generating comments with Gemini:", error);
