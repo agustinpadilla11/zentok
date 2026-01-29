@@ -12,7 +12,6 @@ type Step = 'SELECT' | 'RECORD' | 'FINALIZE';
 export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) => {
   const [step, setStep] = useState<Step>('SELECT');
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
-  const [caption, setCaption] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -31,7 +30,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
       const file = videoBlob instanceof File
         ? videoBlob
         : new File([videoBlob], `video_${Date.now()}.webm`, { type: 'video/webm' });
-      onUpload(file, caption);
+      onUpload(file, '');
     }
   };
 
@@ -105,16 +104,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
                 autoPlay
                 loop
                 muted
-              />
-            </div>
-
-            <div className="space-y-4">
-              <label className="text-[10px] uppercase font-black tracking-widest text-zinc-500 px-2">¿Qué estás pensando?</label>
-              <textarea
-                placeholder="Escribe un pie de foto amable..."
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                className="w-full bg-zinc-800 border border-white/5 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-yellow-400 outline-none transition-all resize-none h-24 text-white"
               />
             </div>
 

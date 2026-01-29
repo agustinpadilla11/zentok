@@ -36,9 +36,6 @@ export const EngagementOverlay: React.FC<EngagementOverlayProps> = ({
             </div>
             <h3 className="font-black text-lg drop-shadow-md text-white group-hover/user:text-blue-400 transition-colors">@{username}</h3>
           </div>
-          <p className="text-white text-sm font-medium leading-relaxed drop-shadow-md line-clamp-2">
-            {caption}
-          </p>
         </div>
 
         <div className="flex flex-col items-center space-y-7 pointer-events-auto pb-4">
