@@ -8,6 +8,8 @@ interface EngagementOverlayProps {
   shares: number;
   saves: number;
   username: string;
+  userAvatar?: string;
+  userDisplayName?: string;
   caption: string;
   onShowComments: () => void;
   onViewProfile: () => void;
@@ -19,22 +21,27 @@ export const EngagementOverlay: React.FC<EngagementOverlayProps> = ({
   shares,
   saves,
   username,
+  userAvatar,
+  userDisplayName,
   caption,
   onShowComments,
   onViewProfile
 }) => {
   return (
-    <div className="absolute inset-0 flex flex-col justify-end p-6 bg-gradient-to-t from-black/90 via-transparent to-transparent pointer-events-none">
+    <div className="absolute inset-0 flex flex-col justify-end p-6 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none">
       <div className="flex justify-between items-end">
-        <div className="mb-6 pointer-events-auto max-w-[75%]">
+        <div className="mb-8 pointer-events-auto max-w-[75%]">
           <div
-            className="flex items-center space-x-3 mb-3 cursor-pointer group/user"
+            className="flex items-center space-x-3 mb-2 cursor-pointer group/user bg-black/10 backdrop-blur-sm p-1 pr-4 rounded-full w-fit border border-white/5 active:scale-95 transition-all"
             onClick={onViewProfile}
           >
-            <div className="w-10 h-10 rounded-full border-2 border-white/50 overflow-hidden shadow-lg group-hover/user:border-white transition-colors">
-              <img src={`https://picsum.photos/seed/${username}/100/100`} alt="avatar" className="w-full h-full object-cover" />
+            <div className="w-11 h-11 rounded-full border-2 border-white/40 overflow-hidden shadow-xl">
+              <img src={userAvatar || `https://picsum.photos/seed/${username}/100/100`} alt="avatar" className="w-full h-full object-cover" />
             </div>
-            <h3 className="font-black text-lg drop-shadow-md text-white group-hover/user:text-blue-400 transition-colors">@{username}</h3>
+            <div className="flex flex-col">
+              <span className="font-black text-sm text-white drop-shadow-lg">{userDisplayName || username}</span>
+              <span className="text-[10px] font-bold text-white/70">@{username}</span>
+            </div>
           </div>
         </div>
 

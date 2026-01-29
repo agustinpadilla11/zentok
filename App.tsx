@@ -150,6 +150,8 @@ const App: React.FC = () => {
             id: v.id,
             url: v.video_url,
             username: v.profiles?.username || 'usuario',
+            userAvatar: v.profiles?.avatar_url || `https://picsum.photos/seed/${v.profiles?.username || v.id}/100/100`,
+            userDisplayName: v.profiles?.display_name || v.profiles?.username || 'Usuario Zen',
             caption: v.caption || "",
             views: baseViews + Math.floor(viewsTargetOffset * progress),
             likes: baseLikes + Math.floor((likesTarget - baseLikes) * progress),
@@ -572,23 +574,23 @@ const App: React.FC = () => {
       </div>
 
       {selectedPostIndex === null && (
-        <nav className="fixed bottom-0 inset-x-0 h-20 bg-black/90 backdrop-blur-xl border-t border-white/5 flex items-center justify-around z-[80] pb-6">
-          <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center space-y-1 ${activeTab === 'home' ? 'text-white' : 'text-zinc-600'}`}>
-            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-            <span className="text-[9px] font-black uppercase tracking-widest">Home</span>
+        <nav className="fixed bottom-0 inset-x-0 h-16 bg-black/95 backdrop-blur-xl border-t border-white/5 flex items-center justify-around z-[80] pb-2">
+          <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center space-y-0.5 ${activeTab === 'home' ? 'text-white' : 'text-zinc-600'}`}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+            <span className="text-[8px] font-black uppercase tracking-widest">Home</span>
           </button>
 
-          <button onClick={() => setIsUploadOpen(true)} className="relative -top-3">
+          <button onClick={() => setIsUploadOpen(true)} className="relative -top-2 scale-90">
             <div className="bg-white p-1 rounded-2xl shadow-xl">
-              <div className="bg-black text-white px-5 py-2 rounded-[14px]">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path d="M12 4v16m8-8H4" /></svg>
+              <div className="bg-black text-white px-4 py-1.5 rounded-[12px]">
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}><path d="M12 4v16m8-8H4" /></svg>
               </div>
             </div>
           </button>
 
-          <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center space-y-1 ${activeTab === 'profile' ? 'text-white' : 'text-zinc-600'}`}>
-            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-            <span className="text-[9px] font-black uppercase tracking-widest">Perfil</span>
+          <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center space-y-0.5 ${activeTab === 'profile' ? 'text-white' : 'text-zinc-600'}`}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            <span className="text-[8px] font-black uppercase tracking-widest">Perfil</span>
           </button>
         </nav>
       )}

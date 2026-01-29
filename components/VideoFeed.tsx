@@ -118,6 +118,8 @@ export const VideoItem: React.FC<{
         shares={post.shares}
         saves={post.saves}
         username={post.username}
+        userAvatar={post.userAvatar}
+        userDisplayName={post.userDisplayName}
         caption={post.caption || ""}
         onShowComments={() => setShowComments(true)}
         onViewProfile={() => onViewProfile(post.username)}

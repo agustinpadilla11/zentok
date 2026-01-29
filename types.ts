@@ -29,6 +29,8 @@ export interface VideoPost {
   id: string;
   url: string;
   username: string;
+  userAvatar?: string;
+  userDisplayName?: string;
   views: number;
   likes: number;
   comments: Comment[];
