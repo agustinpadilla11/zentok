@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { VideoPost, Comment, Notification, UserProfile } from './types';
+import { VideoPost, Comment, AppNotification, UserProfile } from './types';
 import { VideoFeed, VideoItem } from './components/VideoFeed';
 import { UploadModal } from './components/UploadModal';
 import { NotificationCenter } from './components/NotificationCenter';
@@ -26,7 +26,7 @@ const App: React.FC = () => {
   const [selectedPostIndex, setSelectedPostIndex] = useState<number | null>(null);
   const [viewingUser, setViewingUser] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<PostGrowthConfig[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
@@ -60,6 +60,13 @@ const App: React.FC = () => {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // Request Notification Permission
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
   }, []);
 
   const syncUserProfile = (authUser: any) => {
@@ -161,6 +168,7 @@ const App: React.FC = () => {
           };
         }));
         setPosts(formattedPosts);
+        checkDailyUploadReminder(formattedPosts);
       }
     } catch (err: any) {
       console.error("Error loading posts:", err.message);
@@ -244,7 +252,7 @@ const App: React.FC = () => {
   }, [session, posts.length, user.username]);
 
   const addNotification = useCallback((user: string, type: 'like' | 'comment' | 'follow', text: string) => {
-    const newNotif: Notification = {
+    const newNotif: AppNotification = {
       id: `notif-${Date.now()}-${Math.random()}`,
       user,
       type,
@@ -253,6 +261,26 @@ const App: React.FC = () => {
     };
     setNotifications(prev => [...prev, newNotif]);
   }, []);
+
+  const checkDailyUploadReminder = useCallback((currentPosts: VideoPost[]) => {
+    if (!session?.user) return;
+
+    const today = new Date().setHours(0, 0, 0, 0);
+    const hasUploadedToday = currentPosts.some(p => {
+      return p.username === user.username && new Date(p.timestamp).setHours(0, 0, 0, 0) === today;
+    });
+
+    if (!hasUploadedToday) {
+      // Browser notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new window.Notification("¡Hora de ZenTok!", {
+          body: "No has subido tu video hoy. ¡Suelta el miedo!",
+        });
+      }
+      // Internal notification
+      addNotification('Sistema', 'follow', '¡Aún no has subido tu video diario! Toca el + para compartir hoy.');
+    }
+  }, [session, user.username, addNotification]);
 
   const handleUpload = async (videoFile: File, caption: string) => {
     setIsLoading(true);

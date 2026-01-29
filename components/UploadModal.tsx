@@ -13,6 +13,18 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
   const [step, setStep] = useState<Step>('SELECT');
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
 
+  const videoPreviewUrl = React.useMemo(() => {
+    if (!videoBlob) return '';
+    return URL.createObjectURL(videoBlob);
+  }, [videoBlob]);
+
+  // Clean up URL to avoid memory leaks
+  React.useEffect(() => {
+    return () => {
+      if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+    };
+  }, [videoPreviewUrl]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setVideoBlob(e.target.files[0]);
@@ -99,11 +111,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
 
             <div className="aspect-[9/16] bg-black rounded-[2rem] overflow-hidden relative border border-white/10 shadow-2xl">
               <video
-                src={URL.createObjectURL(videoBlob!)}
+                src={videoPreviewUrl}
                 className="w-full h-full object-cover"
                 autoPlay
                 loop
                 muted
+                playsInline
               />
             </div>
 

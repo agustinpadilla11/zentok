@@ -7,7 +7,7 @@ export interface Comment {
   likes: number;
 }
 
-export interface Notification {
+export interface AppNotification {
   id: string;
   user: string;
   type: 'like' | 'comment' | 'follow';

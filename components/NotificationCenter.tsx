@@ -1,13 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
-import { Notification } from '../types';
+import { AppNotification } from '../types';
 
 interface NotificationCenterProps {
-  notifications: Notification[];
+  notifications: AppNotification[];
 }
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifications }) => {
-  const [visibleNotif, setVisibleNotif] = useState<Notification | null>(null);
+  const [visibleNotif, setVisibleNotif] = useState<AppNotification | null>(null);
 
   useEffect(() => {
     if (notifications.length > 0) {
