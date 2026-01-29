@@ -1,29 +1,55 @@
 
 import React, { useState } from 'react';
+import { CameraRecorder } from './CameraRecorder';
+import { VideoEditor } from './VideoEditor';
 
 interface UploadModalProps {
   onUpload: (videoFile: File) => void;
   onClose: () => void;
 }
 
+type Step = 'SELECT' | 'RECORD' | 'EDIT' | 'FINALIZE';
+
 export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) => {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>('SELECT');
+  const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
+  const [processedBlob, setProcessedBlob] = useState<Blob | null>(null);
+  const [caption, setCaption] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-      setPreview(URL.createObjectURL(selectedFile));
+      setVideoBlob(e.target.files[0]);
+      setStep('EDIT');
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (file) {
+  const handleCapture = (blob: Blob) => {
+    setVideoBlob(blob);
+    setStep('EDIT');
+  };
+
+  const handleEditorDone = (blob: Blob) => {
+    setProcessedBlob(blob);
+    setStep('FINALIZE');
+  };
+
+  const handleSubmit = () => {
+    if (processedBlob) {
+      const file = new File([processedBlob], `video_${Date.now()}.webm`, { type: 'video/webm' });
+      onUpload(file);
+    } else if (videoBlob) {
+      const file = videoBlob instanceof File ? videoBlob : new File([videoBlob], `video_${Date.now()}.webm`, { type: 'video/webm' });
       onUpload(file);
     }
   };
+
+  if (step === 'RECORD') {
+    return <CameraRecorder onCapture={handleCapture} onCancel={() => setStep('SELECT')} />;
+  }
+
+  if (step === 'EDIT' && videoBlob) {
+    return <VideoEditor videoBlob={videoBlob} onSave={handleEditorDone} onCancel={() => setStep('SELECT')} />;
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-6 backdrop-blur-md">
@@ -37,44 +63,82 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
           </svg>
         </button>
 
-        <div className="text-center mb-10">
-          <h2 className="text-2xl font-black tracking-tight mb-2">Nuevo Video</h2>
-          <p className="text-zinc-500 text-sm">Sin títulos, sin presión. Solo tú.</p>
-        </div>
+        {step === 'SELECT' ? (
+          <>
+            <div className="text-center mb-10">
+              <h2 className="text-2xl font-black tracking-tight mb-2">Crear Nuevo</h2>
+              <p className="text-zinc-500 text-sm">¿Cómo quieres empezar hoy?</p>
+            </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <div className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-700 rounded-[2.5rem] p-4 hover:border-blue-500 transition-all cursor-pointer relative overflow-hidden h-72 bg-zinc-800/30">
-            {preview ? (
-              <video src={preview} className="absolute inset-0 w-full h-full object-cover" />
-            ) : (
-              <div className="text-center">
-                <div className="bg-blue-600/20 p-5 rounded-full mb-4 mx-auto w-fit">
-                  <svg className="w-10 h-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
+            <div className="space-y-4">
+              <button
+                onClick={() => setStep('RECORD')}
+                className="w-full flex items-center justify-between p-6 bg-white text-black rounded-3xl font-black hover:scale-[1.02] transition-all group"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="bg-red-500 p-3 rounded-2xl text-white group-hover:rotate-12 transition-transform">
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z" /></svg>
+                  </div>
+                  <span className="text-lg">Grabar Video</span>
                 </div>
-                <p className="text-xs text-zinc-400 font-black uppercase tracking-widest">Seleccionar Archivo</p>
-              </div>
-            )}
-            <input
-              type="file"
-              accept="video/*"
-              onChange={handleFileChange}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
-          </div>
+                <svg className="w-5 h-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+              </button>
 
-          <button
-            type="submit"
-            disabled={!file}
-            className={`w-full py-6 rounded-2xl font-black transition-all text-lg shadow-xl ${file
-                ? 'bg-white text-black hover:scale-105 active:scale-95'
-                : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-              }`}
-          >
-            SOLTAR VIDEO
-          </button>
-        </form>
+              <div className="relative">
+                <button
+                  className="w-full flex items-center justify-between p-6 bg-zinc-800 text-white rounded-3xl font-black hover:bg-zinc-700 transition-all"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-blue-600 p-3 rounded-2xl">
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                    </div>
+                    <span className="text-lg">Subir Archivo</span>
+                  </div>
+                  <svg className="w-5 h-5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+                </button>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-8">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-black tracking-tight mb-2">¿Listo?</h2>
+              <p className="text-zinc-500 text-sm">Tu video está preparado para la comunidad.</p>
+            </div>
+
+            <div className="aspect-[9/16] bg-zinc-800 rounded-[2rem] overflow-hidden relative border border-white/5">
+              <video
+                src={URL.createObjectURL(processedBlob || videoBlob!)}
+                className="w-full h-full object-cover"
+                autoPlay
+                loop
+                muted
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
+                <span className="text-white font-bold text-xs uppercase tracking-widest bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">Vista Previa</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleSubmit}
+              className="w-full py-6 bg-white text-black rounded-2xl font-black hover:scale-105 active:scale-95 transition-all text-xl shadow-xl uppercase tracking-tighter"
+            >
+              Publicar Ahora
+            </button>
+            <button
+              onClick={() => setStep('SELECT')}
+              className="w-full py-2 text-zinc-500 font-bold text-xs uppercase tracking-widest hover:text-white transition-colors"
+            >
+              Empezar de nuevo
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
