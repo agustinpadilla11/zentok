@@ -254,7 +254,7 @@ const App: React.FC = () => {
     setNotifications(prev => [...prev, newNotif]);
   }, []);
 
-  const handleUpload = async (videoFile: File) => {
+  const handleUpload = async (videoFile: File, caption: string) => {
     setIsLoading(true);
     setIsUploadOpen(false);
 
@@ -306,7 +306,7 @@ const App: React.FC = () => {
       const { error: dbError } = await supabase.from('videos').insert({
         user_id: session.user.id,
         video_url: publicUrl,
-        caption: "",
+        caption: caption,
         created_at: new Date().toISOString()
       });
 
