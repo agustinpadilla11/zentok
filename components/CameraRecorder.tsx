@@ -26,7 +26,8 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
 
         async function init() {
             try {
-                // Stop everything before starting
+                // IMPORTANT: Stop the tracks of the previous stream before requesting a new one
+                // This prevents the "camera already in use" or "locked" error on some devices
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
                 }
@@ -35,7 +36,8 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                     video: {
                         facingMode: { ideal: facingMode },
                         width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                        height: { ideal: 720 },
+                        frameRate: { ideal: 30 }
                     },
                     audio: true
                 };
@@ -46,6 +48,8 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                     setStream(newStream);
                     if (videoRef.current) {
                         videoRef.current.srcObject = newStream;
+                        // Use muted on preview to avoid feedback loops
+                        videoRef.current.muted = true;
                     }
                 } else {
                     newStream.getTracks().forEach(t => t.stop());
@@ -53,7 +57,6 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
             } catch (err) {
                 console.error("Camera access error:", err);
                 if (isMounted) {
-                    // Fallback to simpler constraints if ideal failed
                     try {
                         const simpleStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                         setStream(simpleStream);
@@ -82,11 +85,12 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
         if (!stream) return;
 
         currentChunksRef.current = [];
-        const options = { mimeType: 'video/webm;codecs=vp9,opus' };
+        // Support for more devices with fallbacks
+        let options: MediaRecorderOptions = { mimeType: 'video/webm;codecs=vp9,opus' };
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-            options.mimeType = 'video/webm;codecs=vp8,opus';
+            options = { mimeType: 'video/webm;codecs=vp8,opus' };
             if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options.mimeType = 'video/mp4';
+                options = { mimeType: 'video/mp4' };
             }
         }
 
@@ -106,16 +110,17 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
             }
         };
 
-        mediaRecorder.start();
+        mediaRecorder.start(100); // Small interval for more fluid data capture
         setRecordingState('recording');
 
         timerRef.current = window.setInterval(() => {
             setRecordingTime(prev => {
-                if (prev >= maxDuration) {
+                const nextVal = prev + 0.1;
+                if (nextVal >= maxDuration) {
                     stopRecording();
-                    return prev;
+                    return maxDuration;
                 }
-                return prev + 0.1;
+                return nextVal;
             });
         }, 100);
     };
@@ -141,20 +146,23 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
     const deleteLastSegment = () => {
         if (segments.length > 0) {
             setSegments(prev => prev.slice(0, -1));
-            // Just reset time strictly based on logic for now
+            // Rough estimation for UI feedback
             if (segments.length === 1) setRecordingTime(0);
-            else setRecordingTime(prev => Math.max(0, prev - 2));
+            else setRecordingTime(prev => Math.max(0, prev - 2.5));
         }
     };
 
     const handleFinish = () => {
         if (segments.length === 0) return;
-        const finalBlob = new Blob(segments, { type: segments[0].type });
-        onCapture(finalBlob);
+        const finalType = segments[0].type || 'video/webm';
+        const finalBlob = new Blob(segments, { type: finalType });
         stopCamera();
+        onCapture(finalBlob);
     };
 
     const flipCamera = () => {
+        // Flipping while recording is usually not supported by single MediaRecorder instances, 
+        // so we only flip between segments (paused/idle).
         if (recordingState !== 'recording') {
             setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
         }
@@ -200,8 +208,8 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                     </svg>
                 </button>
 
-                <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-2xl font-black text-xs tracking-widest flex items-center space-x-2 border border-white/10">
-                    <div className={`w-2 h-2 rounded-full ${recordingState === 'recording' ? 'bg-red-600 animate-pulse' : 'bg-white/40'}`} />
+                <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-2xl font-black text-[10px] tracking-widest flex items-center space-x-2 border border-white/10 uppercase">
+                    <div className={`w-1.5 h-1.5 rounded-full ${recordingState === 'recording' ? 'bg-red-600 animate-pulse' : 'bg-white/40'}`} />
                     <span className="text-white">{formatTime(recordingTime)} / {formatTime(maxDuration)}</span>
                 </div>
 
@@ -221,24 +229,15 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                 {/* Duration Selector */}
                 {recordingState === 'idle' && (
                     <div className="flex space-x-8 text-[11px] font-black uppercase tracking-widest text-white/40">
-                        <button
-                            onClick={() => setMaxDuration(600)}
-                            className={`transition-all ${maxDuration === 600 ? 'text-white scale-110 border-b-2 border-white pb-1' : ''}`}
-                        >
-                            10 min
-                        </button>
-                        <button
-                            onClick={() => setMaxDuration(60)}
-                            className={`transition-all ${maxDuration === 60 ? 'text-white scale-110 border-b-2 border-white pb-1' : ''}`}
-                        >
-                            60 s
-                        </button>
-                        <button
-                            onClick={() => setMaxDuration(15)}
-                            className={`transition-all ${maxDuration === 15 ? 'text-white scale-110 border-b-2 border-white pb-1' : ''}`}
-                        >
-                            15 s
-                        </button>
+                        {([600, 60, 15] as const).map(dur => (
+                            <button
+                                key={dur}
+                                onClick={() => setMaxDuration(dur)}
+                                className={`transition-all ${maxDuration === dur ? 'text-white scale-110 border-b-2 border-white pb-1' : ''}`}
+                            >
+                                {dur === 600 ? '10 min' : dur + ' s'}
+                            </button>
+                        ))}
                     </div>
                 )}
 
@@ -252,7 +251,7 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                                 className="group flex flex-col items-center"
                             >
                                 <div className="bg-zinc-800/80 p-4 rounded-3xl border border-white/10 group-active:scale-90 transition-all">
-                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 002.828 0L21 9" />
                                     </svg>
                                 </div>
@@ -267,10 +266,10 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                             }`}
                     >
                         <div className={`transition-all duration-300 ${recordingState === 'recording'
-                                ? 'w-10 h-10 bg-red-600 rounded-lg'
-                                : recordingState === 'paused'
-                                    ? 'w-18 h-18 bg-red-600 rounded-full animate-pulse'
-                                    : 'w-18 h-18 bg-red-600 rounded-full scale-110 shadow-[0_0_30px_rgba(220,38,38,0.5)]'
+                            ? 'w-10 h-10 bg-red-600 rounded-lg'
+                            : recordingState === 'paused'
+                                ? 'w-18 h-18 bg-red-600 rounded-full animate-pulse'
+                                : 'w-18 h-18 bg-red-600 rounded-full scale-110 shadow-[0_0_30px_rgba(220,38,38,0.5)]'
                             }`} />
                     </button>
 

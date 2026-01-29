@@ -8,6 +8,7 @@ interface ProfileViewProps {
   isOwnProfile: boolean;
   onSelectPost: (index: number) => void;
   onUpdateUser: (updatedUser: Partial<UserProfile>, pfpFile?: File) => void | Promise<void>;
+  onRemoveVideo?: (videoId: string, videoUrl: string) => void | Promise<void>;
   onLogout: () => void;
   onBack?: () => void;
 }
@@ -18,6 +19,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   isOwnProfile,
   onSelectPost,
   onUpdateUser,
+  onRemoveVideo,
   onLogout,
   onBack
 }) => {
@@ -112,12 +114,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <div className="grid grid-cols-3 gap-0.5 px-0.5">
         {posts.length > 0 ? (
           posts.map((post, idx) => (
-            <div key={post.id} onClick={() => onSelectPost(idx)} className="aspect-[3/4] bg-zinc-900 relative group cursor-pointer overflow-hidden">
-              <video src={post.url} className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" muted />
-              <div className="absolute bottom-2 left-2 flex items-center space-x-1 text-white text-[10px] font-black bg-black/40 px-2 py-1 rounded-md backdrop-blur-sm">
+            <div key={post.id} className="aspect-[3/4] bg-zinc-900 relative group cursor-pointer overflow-hidden">
+              <div onClick={() => onSelectPost(idx)} className="absolute inset-0 z-0">
+                <video src={post.url} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" muted />
+              </div>
+              <div className="absolute bottom-2 left-2 flex items-center space-x-1 text-white text-[10px] font-black bg-black/40 px-2 py-1 rounded-md backdrop-blur-sm z-10 pointer-events-none">
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                 <span>{formatViews(post.views, post.timestamp)}</span>
               </div>
+              {isOwnProfile && onRemoveVideo && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveVideo(post.id, post.url);
+                  }}
+                  className="absolute top-2 right-2 p-2 bg-red-500/80 hover:bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all z-20 shadow-lg"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              )}
             </div>
           ))
         ) : (

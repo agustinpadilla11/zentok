@@ -332,6 +332,23 @@ const App: React.FC = () => {
     }
   };
 
+  const handleRemoveVideo = async (videoId: string, videoUrl: string) => {
+    if (!window.confirm("¿Seguro que quieres eliminar este video?")) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.from('videos').delete().eq('id', videoId);
+      if (error) throw error;
+
+      await loadPosts();
+      addNotification('Sistema', 'follow', 'Video eliminado correctamente.');
+    } catch (err: any) {
+      alert("Error al eliminar: " + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleUpdateProfile = async (updatedData: Partial<UserProfile>, pfpFile?: File) => {
     if (!session?.user) return;
     setIsLoading(true);
@@ -505,6 +522,7 @@ const App: React.FC = () => {
                 setSelectedPostIndex(realIdx);
               }}
               onUpdateUser={(u, file) => handleUpdateProfile(u, file)}
+              onRemoveVideo={handleRemoveVideo}
               onLogout={handleLogout}
             />
           ) : (
