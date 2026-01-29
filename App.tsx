@@ -22,8 +22,9 @@ interface PostGrowthConfig extends VideoPost {
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'view_profile'>('home');
   const [selectedPostIndex, setSelectedPostIndex] = useState<number | null>(null);
+  const [viewingUser, setViewingUser] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<PostGrowthConfig[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -403,6 +404,37 @@ const App: React.FC = () => {
     }
   };
 
+  const handleViewProfile = async (username: string) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setViewingUser({
+          username: data.username,
+          displayName: data.display_name || data.username,
+          bio: data.bio || '',
+          avatar: data.avatar_url || `https://picsum.photos/seed/${data.username}/200/200`,
+          followers: data.followers_count || 0,
+          following: data.following_count || 0,
+          totalLikes: data.total_likes || 0
+        });
+        setActiveTab('view_profile');
+        setSelectedPostIndex(null);
+      }
+    } catch (err) {
+      console.error("Error loading viewing profile:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const closeSingleView = () => setSelectedPostIndex(null);
 
   if (!session) {
@@ -445,6 +477,7 @@ const App: React.FC = () => {
               post={posts[selectedPostIndex]}
               isActive={true}
               onLike={() => addNotification('Tú', 'like', '¡Has reaccionado a este video!')}
+              onViewProfile={handleViewProfile}
             />
             <button
               onClick={closeSingleView}
@@ -457,24 +490,39 @@ const App: React.FC = () => {
           </div>
         ) : (
           activeTab === 'home' ? (
-            <VideoFeed posts={posts} onLike={() => addNotification('Tú', 'like', '¡Has reaccionado a este video!')} />
-          ) : (
+            <VideoFeed
+              posts={posts}
+              onLike={() => addNotification('Tú', 'like', '¡Has reaccionado a este video!')}
+              onViewProfile={handleViewProfile}
+            />
+          ) : activeTab === 'profile' ? (
             <ProfileView
               user={user}
+              isOwnProfile={true}
               posts={posts.filter(p => {
-                // Determine the owner of the post. In formattedPosts, we store username.
-                // We need to check if the post belongs to the current logged in user.
-                // The post object returned by loadPosts has the profiles table data.
                 return p.username === user.username;
               })}
               onSelectPost={(idx) => {
-                // Map the filtered index back to the real index in 'posts'
                 const profilePosts = posts.filter(p => p.username === user.username);
                 const realIdx = posts.findIndex(p => p.id === profilePosts[idx].id);
                 setSelectedPostIndex(realIdx);
               }}
               onUpdateUser={(u, file) => handleUpdateProfile(u, file)}
               onLogout={handleLogout}
+            />
+          ) : (
+            <ProfileView
+              user={viewingUser!}
+              isOwnProfile={false}
+              posts={posts.filter(p => p.username === viewingUser?.username)}
+              onSelectPost={(idx) => {
+                const profilePosts = posts.filter(p => p.username === viewingUser?.username);
+                const realIdx = posts.findIndex(p => p.id === profilePosts[idx].id);
+                setSelectedPostIndex(realIdx);
+              }}
+              onUpdateUser={() => { }}
+              onLogout={() => { }}
+              onBack={() => setActiveTab('home')}
             />
           )
         )}

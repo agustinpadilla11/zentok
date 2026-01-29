@@ -5,12 +5,22 @@ import { UserProfile, VideoPost } from '../types';
 interface ProfileViewProps {
   user: UserProfile;
   posts: VideoPost[];
+  isOwnProfile: boolean;
   onSelectPost: (index: number) => void;
   onUpdateUser: (updatedUser: Partial<UserProfile>, pfpFile?: File) => void | Promise<void>;
   onLogout: () => void;
+  onBack?: () => void;
 }
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ user, posts, onSelectPost, onUpdateUser, onLogout }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({
+  user,
+  posts,
+  isOwnProfile,
+  onSelectPost,
+  onUpdateUser,
+  onLogout,
+  onBack
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempUser, setTempUser] = useState(user);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,8 +41,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, posts, onSelectP
 
   return (
     <div className="h-full w-full bg-black overflow-y-auto hide-scrollbar pb-32">
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="absolute top-12 left-6 z-[100] p-2 bg-black/20 backdrop-blur-md rounded-full text-white active:scale-90 transition-all border border-white/10"
+        >
+          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      )}
       <div className="pt-16 pb-10 px-8 flex flex-col items-center">
-        <div className="relative mb-6 group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+        <div
+          className={`relative mb-6 group ${isOwnProfile ? 'cursor-pointer' : ''}`}
+          onClick={() => isOwnProfile && fileInputRef.current?.click()}
+        >
           <div className="w-32 h-32 rounded-full border-4 border-zinc-900 overflow-hidden relative">
             <img src={user.avatar} className="w-full h-full object-cover" alt="pfp" />
           </div>
@@ -66,20 +89,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, posts, onSelectP
               {user.bio}
             </p>
 
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setIsEditing(true)}
-                className="px-8 py-2.5 bg-zinc-900 rounded-full text-xs font-black uppercase tracking-widest border border-white/5 hover:bg-zinc-800 active:scale-95 transition-all"
-              >
-                Editar Perfil
-              </button>
-              <button
-                onClick={onLogout}
-                className="px-8 py-2.5 bg-red-500/10 text-red-500 rounded-full text-xs font-black uppercase tracking-widest border border-red-500/20 hover:bg-red-500/20 active:scale-95 transition-all"
-              >
-                Salir
-              </button>
-            </div>
+            {isOwnProfile && (
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="px-8 py-2.5 bg-zinc-900 rounded-full text-xs font-black uppercase tracking-widest border border-white/5 hover:bg-zinc-800 active:scale-95 transition-all"
+                >
+                  Editar Perfil
+                </button>
+                <button
+                  onClick={onLogout}
+                  className="px-8 py-2.5 bg-red-500/10 text-red-500 rounded-full text-xs font-black uppercase tracking-widest border border-red-500/20 hover:bg-red-500/20 active:scale-95 transition-all"
+                >
+                  Salir
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

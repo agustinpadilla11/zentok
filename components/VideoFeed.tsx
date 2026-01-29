@@ -7,10 +7,15 @@ import { CommentSection } from './CommentSection';
 interface VideoFeedProps {
   posts: VideoPost[];
   onLike?: () => void;
+  onViewProfile: (username: string) => void;
 }
 
-// Exportamos VideoItem para que App.tsx pueda usarlo individualmente
-export const VideoItem: React.FC<{ post: VideoPost; onLike?: () => void; isActive: boolean }> = ({ post, onLike, isActive }) => {
+export const VideoItem: React.FC<{
+  post: VideoPost;
+  onLike?: () => void;
+  isActive: boolean;
+  onViewProfile: (username: string) => void;
+}> = ({ post, onLike, isActive, onViewProfile }) => {
   const [showComments, setShowComments] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [heartAnims, setHeartAnims] = useState<{ id: number; x: number; y: number }[]>([]);
@@ -50,17 +55,17 @@ export const VideoItem: React.FC<{ post: VideoPost; onLike?: () => void; isActiv
   const handleTouch = (e: React.MouseEvent | React.TouchEvent) => {
     const now = Date.now();
     const DOUBLE_PRESS_DELAY = 300;
-    
+
     const clientX = 'touches' in e ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
     const clientY = 'touches' in e ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY;
 
     if (now - lastTap.current < DOUBLE_PRESS_DELAY) {
       if (tapTimer.current) clearTimeout(tapTimer.current);
-      
+
       const id = Date.now();
       setHeartAnims(prev => [...prev, { id, x: clientX, y: clientY }]);
       onLike?.();
-      
+
       setTimeout(() => {
         setHeartAnims(prev => prev.filter(h => h.id !== id));
       }, 1000);
@@ -73,14 +78,14 @@ export const VideoItem: React.FC<{ post: VideoPost; onLike?: () => void; isActiv
   };
 
   return (
-    <div 
+    <div
       className="relative w-full h-[100dvh] snap-start bg-black flex items-center justify-center overflow-hidden"
       onClick={handleTouch}
     >
-      <video 
+      <video
         ref={videoRef}
-        src={post.url} 
-        loop 
+        src={post.url}
+        loop
         playsInline
         className="h-full w-full object-cover"
       />
@@ -96,7 +101,7 @@ export const VideoItem: React.FC<{ post: VideoPost; onLike?: () => void; isActiv
       )}
 
       {heartAnims.map(h => (
-        <div 
+        <div
           key={h.id}
           className="absolute z-50 pointer-events-none animate-heart-burst"
           style={{ left: h.x - 50, top: h.y - 50 }}
@@ -106,8 +111,8 @@ export const VideoItem: React.FC<{ post: VideoPost; onLike?: () => void; isActiv
           </svg>
         </div>
       ))}
-      
-      <EngagementOverlay 
+
+      <EngagementOverlay
         likes={post.likes}
         comments={post.comments.length}
         shares={post.shares}
@@ -115,18 +120,19 @@ export const VideoItem: React.FC<{ post: VideoPost; onLike?: () => void; isActiv
         username={post.username}
         caption={post.caption || ""}
         onShowComments={() => setShowComments(true)}
+        onViewProfile={() => onViewProfile(post.username)}
       />
 
-      <CommentSection 
-        isOpen={showComments} 
-        comments={post.comments} 
-        onClose={() => setShowComments(false)} 
+      <CommentSection
+        isOpen={showComments}
+        comments={post.comments}
+        onClose={() => setShowComments(false)}
       />
     </div>
   );
 };
 
-export const VideoFeed: React.FC<VideoFeedProps> = ({ posts, onLike }) => {
+export const VideoFeed: React.FC<VideoFeedProps> = ({ posts, onLike, onViewProfile }) => {
   const [activeId, setActiveId] = useState<string | null>(posts[0]?.id || null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -162,17 +168,18 @@ export const VideoFeed: React.FC<VideoFeedProps> = ({ posts, onLike }) => {
   }, [posts]);
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="h-[100dvh] w-full overflow-y-scroll snap-y snap-mandatory hide-scrollbar bg-zinc-950"
     >
       {posts.length > 0 ? (
         posts.map((post) => (
           <div key={post.id} data-post-id={post.id} className="snap-start">
-            <VideoItem 
-              post={post} 
-              onLike={onLike} 
-              isActive={activeId === post.id} 
+            <VideoItem
+              post={post}
+              onLike={onLike}
+              isActive={activeId === post.id}
+              onViewProfile={onViewProfile}
             />
           </div>
         ))
