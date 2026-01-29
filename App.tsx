@@ -106,52 +106,49 @@ const App: React.FC = () => {
             likes: Math.floor(Math.random() * 50)
           }));
 
-          // Sophisticated stats randomization
-          const roll = Math.random();
-          let baseViews, viewsTarget, likesTarget;
+          // Use real DB counts as base
+          const baseViews = v.views_count || 0;
+          const baseLikes = v.likes_count || 0;
+          const baseShares = v.shares_count || 0;
+          const baseSaves = v.saves_count || 0;
 
-          if (roll > 0.95) { // 5% Viral
-            baseViews = Math.floor(Math.random() * 5000) + 2000;
-            viewsTarget = baseViews + Math.floor(Math.random() * 50000) + 10000;
-          } else if (roll > 0.7) { // 25% Popular
-            baseViews = Math.floor(Math.random() * 500) + 100;
-            viewsTarget = baseViews + Math.floor(Math.random() * 2000) + 500;
-          } else { // 70% Normal/Low
-            baseViews = Math.floor(Math.random() * 50);
-            viewsTarget = baseViews + Math.floor(Math.random() * 200) + 10;
+          // Simulation targets (Viral/Popular logic kept but starts from DB base)
+          const roll = Math.random();
+          let viewsTargetOffset;
+
+          if (roll > 0.98) { // 2% Viral
+            viewsTargetOffset = Math.floor(Math.random() * 50000) + 10000;
+          } else if (roll > 0.8) { // 20% Popular
+            viewsTargetOffset = Math.floor(Math.random() * 2000) + 500;
+          } else { // 78% Normal
+            viewsTargetOffset = Math.floor(Math.random() * 200) + 10;
           }
 
-          likesTarget = Math.floor(viewsTarget * (Math.random() * 0.15 + 0.05));
-          const sharesTarget = Math.floor(likesTarget * (Math.random() * 0.2));
-          const savesTarget = Math.floor(likesTarget * (Math.random() * 0.3));
+          const viewsTarget = baseViews + viewsTargetOffset;
+          const likesTarget = baseLikes + Math.floor(viewsTargetOffset * (Math.random() * 0.15 + 0.05));
+          const sharesTarget = baseShares + Math.floor((likesTarget - baseLikes) * (Math.random() * 0.2));
+          const savesTarget = baseSaves + Math.floor((likesTarget - baseLikes) * (Math.random() * 0.3));
+
           const growthExponent = 0.6 + Math.random() * 0.4;
           const timestamp = new Date(v.created_at).getTime();
 
           const elapsedMs = Date.now() - timestamp;
           const elapsedMins = elapsedMs / (1000 * 60);
           const totalWindowMins = 1440;
+
+          // Progress is 0 if it's very fresh, otherwise proportional to time
           const progress = Math.min(1, Math.pow(Math.max(0, elapsedMins) / totalWindowMins, growthExponent));
-
-          // Calculate initial state based on time
-          const currentViews = Math.floor(viewsTarget * progress);
-          const currentLikes = Math.floor(likesTarget * progress);
-          const currentShares = Math.floor(sharesTarget * progress);
-          const currentSaves = Math.floor(savesTarget * progress);
-
-          // Calculate how many comments should be visible
-          const commentsCount = Math.floor(aiCommentsPool.length * progress);
-          const initialComments = aiCommentsPool.slice(0, commentsCount);
 
           return {
             id: v.id,
             url: v.video_url,
             username: v.profiles?.username || 'usuario',
             caption: v.caption || "",
-            views: currentViews,
-            likes: currentLikes,
-            shares: currentShares,
-            saves: currentSaves,
-            comments: initialComments,
+            views: baseViews + Math.floor(viewsTargetOffset * progress),
+            likes: baseLikes + Math.floor((likesTarget - baseLikes) * progress),
+            shares: baseShares + Math.floor((sharesTarget - baseShares) * progress),
+            saves: baseSaves + Math.floor((savesTarget - baseSaves) * progress),
+            comments: aiCommentsPool.slice(0, Math.floor(aiCommentsPool.length * progress)),
             timestamp,
             targetViews: viewsTarget,
             targetLikes: likesTarget,
@@ -159,7 +156,7 @@ const App: React.FC = () => {
             targetSaves: savesTarget,
             aiCommentsPool,
             growthExponent,
-            lastCommentIndex: commentsCount,
+            lastCommentIndex: Math.floor(aiCommentsPool.length * progress),
             liveViewers: elapsedMins < totalWindowMins ? Math.floor(Math.random() * 50) : 0
           };
         }));
