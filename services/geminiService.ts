@@ -28,17 +28,18 @@ export const generateSupportiveComments = async (caption: string): Promise<Parti
     });
 
     const prompt = `Eres un grupo de usuarios diversos en una red social similar a TikTok.
-    Genera 10 comentarios cortos (máximo 12 palabras por comentario), realistas y variados para un video con este pie de foto: "${caption || 'un video auténtico'}".
+    Genera 20 comentarios cortos (máximo 15 palabras por comentario), realistas y variados para un video con este pie de foto: "${caption || 'un video auténtico'}".
     
-    Distribución de comentarios:
-    - 60%: Muy positivos y entusiastas (ej: "¡Esto es increíble!", "Necesitaba ver esto hoy ✨").
-    - 25%: Neutrales, curiosos o casuales (ej: "¿Qué filtro usaste?", "Interesante perspectiva", "Ok, me gusta").
-    - 15%: Críticas constructivas mansas o comentarios "no tan buenos" pero sin ser tóxicos (ej: "Siento que le faltó luz", "No entendí muy bien el mensaje", "Un poco largo el video").
+    Distribución de comentarios SOLICITADA:
+    - 40%: Muy positivos, fans y entusiastas (ej: "¡Esto es fuego! 🔥", "Mi video favorito del día", "Necesitaba ver esto ✨").
+    - 30%: Críticas, comentarios negativos o "haters" realistas pero no tóxicos (ej: "No me gusta nada", "Qué cringe...", "Por qué subes esto?", "Aburridooo", "No entendí nada").
+    - 20%: Neutrales o casuales (ej: "Ok", "Qué filtro es?", "Interesante", "Llegué tarde?").
+    - 10%: Spam o comentarios aleatorios típicos (ej: "Síganme para más", "Vendo pan 🥖", "Primer comentario!").
     
     Reglas:
-    - Usa lenguaje natural de redes sociales con errores menores, abreviaturas y emojis.
-    - Los nombres de usuario deben parecer reales (ej: lucia.99, x_pablo_x, dev_master).
-    - Evita que todos suenen igual.`;
+    - Usa lenguaje natural de redes sociales: emojis, abreviaturas (ptm, vdd, xq), errores de ortografía menores.
+    - Los nombres de usuario deben parecer reales y variados.
+    - Los comentarios negativos NO deben ser insultos graves, sino desprecio o crítica típica de internet.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -54,13 +55,15 @@ export const generateSupportiveComments = async (caption: string): Promise<Parti
     return JSON.parse(jsonStr);
   } catch (error) {
     console.error("Error generating comments with Gemini:", error);
-    // Fallback comments if AI fails
+    // Fallback comments if AI fails - More varied mix
     return [
-      { user: "amigo_virtual", text: "¡Increíble video! Me encantó la vibra ✨", likes: 12 },
-      { user: "vibra_positiva", text: "Sigue así, tienes mucho talento ❤️", likes: 8 },
-      { user: "ser_luz", text: "Este video me alegró el día, gracias por compartir", likes: 25 },
-      { user: "camino_paz", text: "Qué valiente eres al subir esto, te felicito", likes: 15 },
-      { user: "mundo_fiel", text: "Me encanta tu autenticidad", likes: 19 }
+      { user: "fan_numero1", text: "¡Increíble video! ✨", likes: 45 },
+      { user: "hater404", text: "No me gustó para nada, borra eso", likes: 2 },
+      { user: "curioso_99", text: "Qué filtro usaste?", likes: 7 },
+      { user: "critico_pro", text: "Siento que le faltó edición", likes: 11 },
+      { user: "vibra_ok", text: "Me gusta pero no me encanta", likes: 5 },
+      { user: "random_user", text: "Vendo empanadas 🥐", likes: 20 },
+      { user: "luis_dev", text: "Buen intento pero nqv", likes: 4 }
     ];
   }
 };
