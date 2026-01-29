@@ -1,43 +1,67 @@
-
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ZenTok - Tu Refugio Digital</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #000;
-            color: #fff;
-            margin: 0;
-            overflow: hidden;
-        }
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        @keyframes heart-burst {
-          0% { transform: scale(0) rotate(-15deg); opacity: 0; }
-          25% { transform: scale(1.2) rotate(5deg); opacity: 1; }
-          100% { transform: scale(1.5) rotate(10deg); opacity: 0; }
-        }
-        .animate-heart-burst {
-          animation: heart-burst 0.8s ease-out forwards;
-        }
-        .bg-zentok {
-          background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
-        }
-    </style>
-<link rel="stylesheet" href="/index.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZenTok - Tu Refugio Digital</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ZenTok">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #000;
+      color: #fff;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    @keyframes heart-burst {
+      0% {
+        transform: scale(0) rotate(-15deg);
+        opacity: 0;
+      }
+
+      25% {
+        transform: scale(1.2) rotate(5deg);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scale(1.5) rotate(10deg);
+        opacity: 0;
+      }
+    }
+
+    .animate-heart-burst {
+      animation: heart-burst 0.8s ease-out forwards;
+    }
+
+    .bg-zentok {
+      background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+    }
+  </style>
+  <link rel="stylesheet" href="/index.css">
 </head>
+
 <body>
-    <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>
