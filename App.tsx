@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
+  const [isInstagramUnlocked, setIsInstagramUnlocked] = useState(false);
 
   const [user, setUser] = useState<UserProfile>({
     username: 'nuevo_usuario',
@@ -285,6 +286,9 @@ const App: React.FC = () => {
       }
       // Internal notification
       addNotification('Sistema', 'follow', '¡Aún no has subido tu video diario! Toca el + para compartir hoy.');
+      setIsInstagramUnlocked(false);
+    } else {
+      setIsInstagramUnlocked(true);
     }
   }, [session, user.username, addNotification]);
 
@@ -563,6 +567,7 @@ const App: React.FC = () => {
               onUpdateUser={(u, file) => handleUpdateProfile(u, file)}
               onRemoveVideo={handleRemoveVideo}
               onLogout={handleLogout}
+              isInstagramUnlocked={isInstagramUnlocked}
             />
           ) : (
             <ProfileView
