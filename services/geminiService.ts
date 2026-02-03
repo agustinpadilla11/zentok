@@ -67,3 +67,73 @@ export const generateSupportiveComments = async (caption: string): Promise<Parti
     ];
   }
 };
+
+export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<any> => {
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    // Convert Blob to base64
+    const base64Data = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = (reader.result as string).split(',')[1];
+        resolve(base64);
+      };
+      reader.readAsDataURL(videoBlob);
+    });
+
+    const prompt = `Analiza este video de un usuario que está practicando para perder el miedo a hablar en público/redes sociales.
+    El pie de foto es: "${caption}".
+    
+    Devuelve un JSON con la siguiente estructura:
+    {
+      "fillerWords": [{"word": string, "count": number, "timestamp": string}],
+      "toneOfVoice": string (breve descripción),
+      "naturalness": string (breve descripción),
+      "messageClarity": string (breve descripción),
+      "audienceRetention": string (breve descripción de qué tan bien retendría a la audiencia),
+      "advice": [string] (lista de 3-4 consejos específicos),
+      "score": number (0-100)
+    }
+    
+    Sé honesto pero constructivo. El puntaje debe reflejar la calidad real del video para ser subido a TikTok.`;
+
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          data: base64Data,
+          mimeType: videoBlob.type
+        }
+      },
+      { text: prompt }
+    ]);
+
+    const response = await result.response;
+    let jsonStr = response.text().trim();
+
+    if (jsonStr.startsWith("```json")) {
+      jsonStr = jsonStr.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+    } else if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```\n?/, "").replace(/\n?```$/, "");
+    }
+
+    return JSON.parse(jsonStr);
+  } catch (error) {
+    console.error("Error analyzing video with Gemini:", error);
+    // Return a default/error object if analysis fails
+    return {
+      fillerWords: [],
+      toneOfVoice: "No se pudo analizar",
+      naturalness: "No se pudo analizar",
+      messageClarity: "No se pudo analizar",
+      audienceRetention: "No se pudo analizar",
+      advice: ["Hubo un error al analizar el video. Intenta de nuevo."],
+      score: 50
+    };
+  }
+};

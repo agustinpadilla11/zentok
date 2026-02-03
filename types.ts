@@ -41,3 +41,13 @@ export interface VideoPost {
   caption?: string;
   overlayText?: string;
 }
+
+export interface VideoAnalysis {
+  fillerWords: { word: string; count: number; timestamp: string }[];
+  toneOfVoice: string;
+  naturalness: string;
+  messageClarity: string;
+  audienceRetention: string;
+  advice: string[];
+  score: number;
+}
