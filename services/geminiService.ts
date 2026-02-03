@@ -70,6 +70,12 @@ export const generateSupportiveComments = async (caption: string): Promise<Parti
 
 export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<any> => {
   try {
+    console.log("Iniciando análisis de video...", { type: videoBlob.type, size: videoBlob.size, caption });
+
+    if (!API_KEY) {
+      throw new Error("VITE_GEMINI_API_KEY no está configurada en .env.local");
+    }
+
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       generationConfig: {
@@ -88,51 +94,67 @@ export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<an
     });
 
     const prompt = `Analiza este video de un usuario que está practicando para perder el miedo a hablar en público/redes sociales.
-    El pie de foto es: "${caption}".
+    El pie de foto proporcionado por el usuario es: "${caption || 'Ninguno'}".
     
-    Devuelve un JSON con la siguiente estructura:
+    Devuelve un JSON estrictamente con la siguiente estructura:
     {
       "fillerWords": [{"word": string, "count": number, "timestamp": string}],
-      "toneOfVoice": string (breve descripción),
-      "naturalness": string (breve descripción),
-      "messageClarity": string (breve descripción),
-      "audienceRetention": string (breve descripción de qué tan bien retendría a la audiencia),
-      "advice": [string] (lista de 3-4 consejos específicos),
-      "score": number (0-100)
+      "toneOfVoice": string,
+      "naturalness": string,
+      "messageClarity": string,
+      "audienceRetention": string,
+      "advice": [string],
+      "score": number
     }
     
-    Sé honesto pero constructivo. El puntaje debe reflejar la calidad real del video para ser subido a TikTok.`;
+    Instrucciones de análisis:
+    1. fillerWords: Detecta muletillas (eh, mm, este, o sea, etc.) y di en qué momento ocurren aprox.
+    2. toneOfVoice: Evalúa si es monótono, entusiasta, nervioso, etc.
+    3. naturalness: Evalúa si se ve forzado o natural.
+    4. messageClarity: ¿Se entiende lo que quiere transmitir?
+    5. audienceRetention: ¿El inicio es ganchero? ¿Mantiene el ritmo?
+    6. advice: Da 3 consejos prácticos.
+    7. score: Puntaje del 0 al 100 basado en lo listo que está para TikTok.`;
+
+    // Gemini prefiere mimetypes limpios como "video/webm" o "video/mp4"
+    const cleanMimeType = videoBlob.type.split(';')[0] || 'video/webm';
 
     const result = await model.generateContent([
       {
         inlineData: {
           data: base64Data,
-          mimeType: videoBlob.type
+          mimeType: cleanMimeType
         }
       },
       { text: prompt }
     ]);
 
     const response = await result.response;
-    let jsonStr = response.text().trim();
+    let text = response.text().trim();
 
-    if (jsonStr.startsWith("```json")) {
-      jsonStr = jsonStr.replace(/^```json\n?/, "").replace(/\n?```$/, "");
-    } else if (jsonStr.startsWith("```")) {
-      jsonStr = jsonStr.replace(/^```\n?/, "").replace(/\n?```$/, "");
+    // Buscar el JSON dentro del texto por si Gemini añade explicaciones
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      text = jsonMatch[0];
     }
 
-    return JSON.parse(jsonStr);
-  } catch (error) {
-    console.error("Error analyzing video with Gemini:", error);
-    // Return a default/error object if analysis fails
+    const parsedResult = JSON.parse(text);
+    console.log("Análisis completado exitosamente:", parsedResult);
+    return parsedResult;
+  } catch (error: any) {
+    console.error("Error detallado en analyzeVideo:", error);
+
+    // Retornar un objeto de error estructurado para que la UI no se rompa
     return {
       fillerWords: [],
-      toneOfVoice: "No se pudo analizar",
-      naturalness: "No se pudo analizar",
-      messageClarity: "No se pudo analizar",
-      audienceRetention: "No se pudo analizar",
-      advice: ["Hubo un error al analizar el video. Intenta de nuevo."],
+      toneOfVoice: "Error técnico",
+      naturalness: "No se pudo procesar el video",
+      messageClarity: "Revisa tu conexión o el archivo",
+      audienceRetention: "El modelo de IA no respondió correctamente",
+      advice: [
+        "Asegúrate de que el video no sea demasiado largo (máximo 1-2 min).",
+        `Detalle técnico: ${error.message || 'Error desconocido'}`
+      ],
       score: 50
     };
   }
