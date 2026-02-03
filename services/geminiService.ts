@@ -9,7 +9,7 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 export const generateSupportiveComments = async (caption: string): Promise<Partial<Comment>[]> => {
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-flash-latest",
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -76,8 +76,9 @@ export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<an
       throw new Error("VITE_GEMINI_API_KEY no está configurada en .env.local");
     }
 
+    // Usamos 'gemini-1.5-flash-latest' para máxima compatibilidad multimodal
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-flash-latest",
       generationConfig: {
         responseMimeType: "application/json",
       }
@@ -90,18 +91,17 @@ export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<an
         const result = reader.result as string;
         if (!result) return reject(new Error("No se pudo leer el archivo"));
 
-        // CORRECCIÓN DEFINITIVA: 
-        // El formato es data:video/webm;codecs=vp9,opus;base64,DATOS...
-        // Si usamos indexOf(',') toma la coma de los codecs.
-        // Usamos split(';base64,') y tomamos la parte de los DATOS.
-        const parts = result.split(';base64,');
-        if (parts.length < 2) return reject(new Error("Formato Base64 no encontrado"));
+        // CORRECCIÓN FINAL: Usamos lastIndexOf(',') para ser inmunes a cualquier codec en el mimetype
+        const lastCommaIndex = result.lastIndexOf(',');
+        if (lastCommaIndex === -1) return reject(new Error("Formato Base64 no encontrado"));
 
-        resolve(parts.pop() || "");
+        resolve(result.substring(lastCommaIndex + 1));
       };
-      reader.onerror = () => reject(new Error("Error de lectura"));
+      reader.onerror = () => reject(new Error("Error de lectura del archivo"));
       reader.readAsDataURL(videoBlob);
     });
+
+    const cleanMimeType = videoBlob.type.split(';')[0] || 'video/webm';
 
     const prompt = `Analiza este video de un usuario que está practicando para perder el miedo a hablar en público/redes sociales.
     El pie de foto proporcionado por el usuario es: "${caption || 'Ninguno'}".
@@ -117,25 +117,20 @@ export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<an
       "score": number
     }
     
-    Instrucciones de análisis:
-    1. fillerWords: Detecta muletillas (eh, mm, este, o sea, etc.) y di en qué momento ocurren aprox.
-    2. toneOfVoice: Evalúa si es monótono, entusiasta, nervioso, etc.
-    3. naturalness: Evalúa si se ve forzado o natural.
-    4. messageClarity: ¿Se entiende lo que quiere transmitir?
-    5. audienceRetention: ¿El inicio es ganchero? ¿Mantiene el ritmo?
-    6. advice: Da 3 consejos prácticos.
-    7. score: Puntaje del 0 al 100 basado en lo listo que está para TikTok.`;
-
-    // Gemini prefiere mimetypes limpios como "video/webm" o "video/mp4"
-    let cleanMimeType = videoBlob.type.split(';')[0];
-    if (cleanMimeType.includes('webm')) cleanMimeType = 'video/webm';
-    if (!cleanMimeType) cleanMimeType = 'video/webm';
+    Instrucciones:
+    1. fillerWords: Detecta muletillas (eh, mm, este, o sea, etc.) y di en qué momento ocurren.
+    2. toneOfVoice: Evalúa el tono (entusiasta, nervioso, monótono).
+    3. naturalness: Evalúa qué tan natural se ve.
+    4. messageClarity: Evalúa si se entiende la idea central.
+    5. audienceRetention: Evalúa el enganche inicial.
+    6. advice: Da 3 consejos.
+    7. score: Puntaje de 0 a 100.`;
 
     const result = await model.generateContent([
       {
         inlineData: {
           data: base64Data,
-          mimeType: cleanMimeType
+          mimeType: cleanMimeType.includes('webm') ? 'video/webm' : cleanMimeType
         }
       },
       { text: prompt }
@@ -144,28 +139,27 @@ export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<an
     const response = await result.response;
     let text = response.text().trim();
 
-    // Buscar el JSON dentro del texto por si Gemini añade explicaciones
+    // Buscar el JSON dentro del texto
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       text = jsonMatch[0];
     }
 
     const parsedResult = JSON.parse(text);
-    console.log("Análisis completado exitosamente:", parsedResult);
+    console.log("Análisis completado:", parsedResult);
     return parsedResult;
-  } catch (error: any) {
-    console.error("Error detallado en analyzeVideo:", error);
 
-    // Retornar un objeto de error estructurado para que la UI no se rompa
+  } catch (error: any) {
+    console.error("Error en analyzeVideo:", error);
     return {
       fillerWords: [],
       toneOfVoice: "Error técnico",
       naturalness: "No se pudo procesar el video",
-      messageClarity: "Revisa tu conexión o el archivo",
-      audienceRetention: "El modelo de IA no respondió correctamente",
+      messageClarity: "Error en la conexión con la IA",
+      audienceRetention: "Prueba con un video más corto",
       advice: [
-        "Asegúrate de que el video no sea demasiado largo (máximo 1-2 min).",
-        `Detalle técnico: ${error.message || 'Error desconocido'}`
+        "Asegúrate de que el video no supere los 20MB.",
+        `Error: ${error.message || 'Error desconocido'}`
       ],
       score: 50
     };
