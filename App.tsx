@@ -6,7 +6,7 @@ import { UploadModal } from './components/UploadModal';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ProfileView } from './components/ProfileView';
 import { Auth } from './components/Auth';
-import { generateSupportiveComments } from './services/geminiService';
+import { generateSupportiveComments, evaluateViralPotential } from './services/geminiService';
 import { supabase } from './services/supabase';
 
 interface PostGrowthConfig extends VideoPost {
@@ -119,16 +119,20 @@ const App: React.FC = () => {
           const baseShares = v.shares_count || 0;
           const baseSaves = v.saves_count || 0;
 
-          // Simulation targets (Viral/Popular logic kept but starts from DB base)
+          // Parse potential score if exists in caption (hidden tag [VP:xx])
+          const vpMatch = v.caption?.match(/\[VP:(\d+)\]/);
+          const potentialScore = vpMatch ? parseInt(vpMatch[1]) : 50;
+
+          // Simulation targets based on AI Potential or Random for old videos
           const roll = Math.random();
           let viewsTargetOffset;
 
-          if (roll > 0.98) { // 2% Viral
-            viewsTargetOffset = Math.floor(Math.random() * 50000) + 10000;
-          } else if (roll > 0.8) { // 20% Popular
-            viewsTargetOffset = Math.floor(Math.random() * 2000) + 500;
-          } else { // 78% Normal
-            viewsTargetOffset = Math.floor(Math.random() * 200) + 10;
+          if (potentialScore >= 80 || (roll > 0.98 && !vpMatch)) { // Viral Potential or 2% Lucky
+            viewsTargetOffset = Math.floor(Math.random() * 50000) + 20000;
+          } else if (potentialScore >= 50 || (roll > 0.8 && !vpMatch)) { // 20% Popular
+            viewsTargetOffset = Math.floor(Math.random() * 5000) + 1000;
+          } else { // 78% Normal or low potential
+            viewsTargetOffset = Math.floor(Math.random() * 300) + 20;
           }
 
           const viewsTarget = baseViews + viewsTargetOffset;
@@ -332,11 +336,16 @@ const App: React.FC = () => {
 
       console.log("URL pública generada:", publicUrl);
 
-      // 4. Insertar registro de video
+      // 4. Analizar potencial viral con IA (Silenciosamente)
+      console.log("Evaluando potencial viral con IA...");
+      const potential = await evaluateViralPotential(videoFile, caption);
+      const finalCaption = `${caption} [VP:${potential}]`;
+
+      // 5. Insertar registro de video
       const { error: dbError } = await supabase.from('videos').insert({
         user_id: session.user.id,
         video_url: publicUrl,
-        caption: caption,
+        caption: finalCaption,
         created_at: new Date().toISOString()
       });
 

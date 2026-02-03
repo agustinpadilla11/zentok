@@ -43,6 +43,9 @@ export const EngagementOverlay: React.FC<EngagementOverlayProps> = ({
               <span className="text-[10px] font-bold text-white/70">@{username}</span>
             </div>
           </div>
+          <p className="text-sm text-white font-medium line-clamp-2 drop-shadow-lg leading-relaxed">
+            {caption.replace(/\[VP:\d+\]/, '').trim()}
+          </p>
         </div>
 
         <div className="flex flex-col items-center space-y-7 pointer-events-auto pb-4">

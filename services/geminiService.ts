@@ -28,7 +28,7 @@ export const generateSupportiveComments = async (caption: string): Promise<Parti
     });
 
     const prompt = `Eres un grupo de usuarios diversos en una red social similar a TikTok.
-    Genera 20 comentarios cortos (máximo 15 palabras por comentario), realistas y variados para un video con este pie de foto: "${caption || 'un video auténtico'}".
+    Genera 35 comentarios cortos (máximo 15 palabras por comentario), realistas y variados para un video con este pie de foto: "${caption || 'un video auténtico'}".
     
     Distribución de comentarios SOLICITADA:
     - 40%: Muy positivos, fans y entusiastas (ej: "¡Esto es fuego! 🔥", "Mi video favorito del día", "Necesitaba ver esto ✨").
@@ -56,27 +56,20 @@ export const generateSupportiveComments = async (caption: string): Promise<Parti
   } catch (error) {
     console.error("Error generating comments with Gemini:", error);
     // Fallback comments if AI fails - More varied mix
-    return [
-      { user: "fan_numero1", text: "¡Increíble video! ✨", likes: 45 },
-      { user: "hater404", text: "No me gustó para nada, borra eso", likes: 2 },
-      { user: "curioso_99", text: "Qué filtro usaste?", likes: 7 },
-      { user: "critico_pro", text: "Siento que le faltó edición", likes: 11 },
-      { user: "vibra_ok", text: "Me gusta pero no me encanta", likes: 5 },
-      { user: "random_user", text: "Vendo empanadas 🥐", likes: 20 },
-      { user: "luis_dev", text: "Buen intento pero nqv", likes: 4 }
-    ];
+    return Array.from({ length: 35 }).map((_, i) => ({
+      user: `user_${Math.floor(Math.random() * 1000)}`,
+      text: i % 2 === 0 ? "¡Excelente video! 🚀" : "Me gusta la vibra de este clip.",
+      likes: Math.floor(Math.random() * 50)
+    }));
   }
 };
 
-export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<any> => {
+/**
+ * Evalúa el potencial viral del video (0 a 100).
+ * Se usará para determinar si el video tiene "muchas vistas" o "pocas vistas".
+ */
+export const evaluateViralPotential = async (videoBlob: Blob, caption: string): Promise<number> => {
   try {
-    console.log("Iniciando análisis de video...", { type: videoBlob.type, size: videoBlob.size, caption });
-
-    if (!API_KEY) {
-      throw new Error("VITE_GEMINI_API_KEY no está configurada en .env.local");
-    }
-
-    // Usamos 'gemini-1.5-flash-latest' para máxima compatibilidad multimodal
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash-latest",
       generationConfig: {
@@ -84,47 +77,30 @@ export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<an
       }
     });
 
-    // Convert Blob to base64
     const base64Data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
         if (!result) return reject(new Error("No se pudo leer el archivo"));
-
-        // CORRECCIÓN FINAL: Usamos lastIndexOf(',') para ser inmunes a cualquier codec en el mimetype
         const lastCommaIndex = result.lastIndexOf(',');
-        if (lastCommaIndex === -1) return reject(new Error("Formato Base64 no encontrado"));
-
         resolve(result.substring(lastCommaIndex + 1));
       };
-      reader.onerror = () => reject(new Error("Error de lectura del archivo"));
       reader.readAsDataURL(videoBlob);
     });
 
     const cleanMimeType = videoBlob.type.split(';')[0] || 'video/webm';
 
-    const prompt = `Analiza este video de un usuario que está practicando para perder el miedo a hablar en público/redes sociales.
-    El pie de foto proporcionado por el usuario es: "${caption || 'Ninguno'}".
+    const prompt = `Analiza el potencial de este video para hacerse viral en TikTok.
+    Ten en cuenta la energía, la calidad visual inicial, y el pie de foto: "${caption || 'Ninguno'}".
     
-    Devuelve un JSON estrictamente con la siguiente estructura:
+    Devuelve un JSON estrictamente así:
     {
-      "fillerWords": [{"word": string, "count": number, "timestamp": string}],
-      "toneOfVoice": string,
-      "naturalness": string,
-      "messageClarity": string,
-      "audienceRetention": string,
-      "advice": [string],
-      "score": number
+      "potentialScore": number (de 0 a 100)
     }
     
-    Instrucciones:
-    1. fillerWords: Detecta muletillas (eh, mm, este, o sea, etc.) y di en qué momento ocurren.
-    2. toneOfVoice: Evalúa el tono (entusiasta, nervioso, monótono).
-    3. naturalness: Evalúa qué tan natural se ve.
-    4. messageClarity: Evalúa si se entiende la idea central.
-    5. audienceRetention: Evalúa el enganche inicial.
-    6. advice: Da 3 consejos.
-    7. score: Puntaje de 0 a 100.`;
+    0-30: Poco potencial (video muy monótono o sin gancho).
+    31-70: Potencial medio.
+    71-100: Mucho potencial (gran energía, gancho inicial claro, contenido interesante).`;
 
     const result = await model.generateContent([
       {
@@ -137,31 +113,15 @@ export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<an
     ]);
 
     const response = await result.response;
-    let text = response.text().trim();
-
-    // Buscar el JSON dentro del texto
+    const text = response.text().trim();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      text = jsonMatch[0];
-    }
+    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : '{"potentialScore": 50}');
 
-    const parsedResult = JSON.parse(text);
-    console.log("Análisis completado:", parsedResult);
-    return parsedResult;
+    console.log("Potencial Viral evaluado:", parsed.potentialScore);
+    return parsed.potentialScore;
 
-  } catch (error: any) {
-    console.error("Error en analyzeVideo:", error);
-    return {
-      fillerWords: [],
-      toneOfVoice: "Error técnico",
-      naturalness: "No se pudo procesar el video",
-      messageClarity: "Error en la conexión con la IA",
-      audienceRetention: "Prueba con un video más corto",
-      advice: [
-        "Asegúrate de que el video no supere los 20MB.",
-        `Error: ${error.message || 'Error desconocido'}`
-      ],
-      score: 50
-    };
+  } catch (error) {
+    console.error("Error evaluando potencial:", error);
+    return 50; // Default a la mitad
   }
 };
