@@ -84,12 +84,19 @@ export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<an
     });
 
     // Convert Blob to base64
-    const base64Data = await new Promise<string>((resolve) => {
+    const base64Data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64 = (reader.result as string).split(',')[1];
-        resolve(base64);
+        const result = reader.result as string;
+        if (!result) return reject(new Error("No se pudo leer el archivo"));
+
+        // CORRECCIÓN: Los codecs pueden traer comas extras. Buscamos solo la PRIMERA.
+        const commaIndex = result.indexOf(',');
+        if (commaIndex === -1) return reject(new Error("Formato Base64 inválido"));
+
+        resolve(result.substring(commaIndex + 1));
       };
+      reader.onerror = () => reject(new Error("Error de lectura"));
       reader.readAsDataURL(videoBlob);
     });
 
@@ -117,7 +124,9 @@ export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<an
     7. score: Puntaje del 0 al 100 basado en lo listo que está para TikTok.`;
 
     // Gemini prefiere mimetypes limpios como "video/webm" o "video/mp4"
-    const cleanMimeType = videoBlob.type.split(';')[0] || 'video/webm';
+    let cleanMimeType = videoBlob.type.split(';')[0];
+    if (cleanMimeType.includes('webm')) cleanMimeType = 'video/webm';
+    if (!cleanMimeType) cleanMimeType = 'video/webm';
 
     const result = await model.generateContent([
       {
