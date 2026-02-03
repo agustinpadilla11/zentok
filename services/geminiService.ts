@@ -90,11 +90,14 @@ export const analyzeVideo = async (videoBlob: Blob, caption: string): Promise<an
         const result = reader.result as string;
         if (!result) return reject(new Error("No se pudo leer el archivo"));
 
-        // CORRECCIÓN: Los codecs pueden traer comas extras. Buscamos solo la PRIMERA.
-        const commaIndex = result.indexOf(',');
-        if (commaIndex === -1) return reject(new Error("Formato Base64 inválido"));
+        // CORRECCIÓN DEFINITIVA: 
+        // El formato es data:video/webm;codecs=vp9,opus;base64,DATOS...
+        // Si usamos indexOf(',') toma la coma de los codecs.
+        // Usamos split(';base64,') y tomamos la parte de los DATOS.
+        const parts = result.split(';base64,');
+        if (parts.length < 2) return reject(new Error("Formato Base64 no encontrado"));
 
-        resolve(result.substring(commaIndex + 1));
+        resolve(parts.pop() || "");
       };
       reader.onerror = () => reject(new Error("Error de lectura"));
       reader.readAsDataURL(videoBlob);
