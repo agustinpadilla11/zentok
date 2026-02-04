@@ -39,10 +39,7 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                 const constraints = {
                     video: {
                         facingMode: { ideal: facingMode },
-                        // Avoid strict width/height to prevent forced cropping/zoom
-                        aspectRatio: { ideal: 9 / 16 },
-                        width: { ideal: 540 },
-                        height: { ideal: 960 }
+                        aspectRatio: { ideal: 9 / 16 }
                     },
                     audio: {
                         echoCancellation: true,
@@ -119,17 +116,17 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
         // Support for more devices with fallbacks
         let options: MediaRecorderOptions = {
             mimeType: 'video/webm;codecs=vp9,opus',
-            videoBitsPerSecond: 1000000 // 1 Mbps - Ultralight for fast uploads
+            videoBitsPerSecond: 800000 // 800 kbps - Faster for poor connections
         };
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
             options = {
                 mimeType: 'video/webm;codecs=vp8,opus',
-                videoBitsPerSecond: 1000000
+                videoBitsPerSecond: 800000
             };
             if (!MediaRecorder.isTypeSupported(options.mimeType)) {
                 options = {
                     mimeType: 'video/mp4',
-                    videoBitsPerSecond: 1000000
+                    videoBitsPerSecond: 800000
                 };
             }
         }
@@ -225,7 +222,7 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                 />
             </div>
 
