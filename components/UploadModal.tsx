@@ -40,8 +40,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
       video.preload = 'metadata';
       video.onloadedmetadata = () => {
         window.URL.revokeObjectURL(video.src);
-        if (video.duration > 185) { // Allowing constant 5s buffer
-          alert('El video no puede durar más de 3 minutos.');
+        if (video.duration > 125) { // Allowing constant 5s buffer (2 min)
+          alert('El video no puede durar más de 2 minutos.');
         } else {
           setVideoBlob(file);
           setStep('FINALIZE');
@@ -85,7 +85,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
           <>
             <div className="text-center mb-10">
               <h2 className="text-2xl font-black tracking-tight mb-2 uppercase italic tracking-tighter">ZENTOK CREAR</h2>
-              <p className="text-zinc-500 text-sm">Videos de hasta 3 minutos.</p>
+              <p className="text-zinc-500 text-sm">Videos de hasta 2 minutos.</p>
             </div>
 
             <div className="space-y-4">

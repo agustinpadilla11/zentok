@@ -7,7 +7,7 @@ interface CameraRecorderProps {
 }
 
 type RecordingState = 'idle' | 'recording' | 'paused' | 'review';
-type DurationOption = 15 | 60 | 180 | 600; // seconds
+type DurationOption = 30 | 60 | 120; // seconds
 
 export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCancel }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -15,7 +15,7 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
     const [recordingState, setRecordingState] = useState<RecordingState>('idle');
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
-    const [maxDuration, setMaxDuration] = useState<DurationOption>(180);
+    const [maxDuration, setMaxDuration] = useState<DurationOption>(120);
     const [recordingTime, setRecordingTime] = useState(0);
     const [segments, setSegments] = useState<Blob[]>([]);
     const timerRef = useRef<number | null>(null);
@@ -39,8 +39,8 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                 const constraints = {
                     video: {
                         facingMode: { ideal: facingMode },
-                        width: { ideal: 1080 },
-                        height: { ideal: 1920 }, // Vertical high res
+                        width: { ideal: 720 },
+                        height: { ideal: 1280 }, // Balanced resolution for speed
                         frameRate: { ideal: 30 }
                     },
                     audio: {
@@ -118,17 +118,17 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
         // Support for more devices with fallbacks
         let options: MediaRecorderOptions = {
             mimeType: 'video/webm;codecs=vp9,opus',
-            videoBitsPerSecond: 2500000 // 2.5 Mbps is good for mobile
+            videoBitsPerSecond: 1500000 // 1.5 Mbps - Optimized for faster uploads
         };
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
             options = {
                 mimeType: 'video/webm;codecs=vp8,opus',
-                videoBitsPerSecond: 2500000
+                videoBitsPerSecond: 1500000
             };
             if (!MediaRecorder.isTypeSupported(options.mimeType)) {
                 options = {
                     mimeType: 'video/mp4',
-                    videoBitsPerSecond: 2500000
+                    videoBitsPerSecond: 1500000
                 };
             }
         }
@@ -277,13 +277,13 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                 {/* Duration Selector */}
                 {recordingState === 'idle' && (
                     <div className="flex space-x-8 text-[11px] font-black uppercase tracking-widest text-white/40">
-                        {([600, 180, 60, 15] as const).map(dur => (
+                        {([120, 60, 30] as const).map(dur => (
                             <button
                                 key={dur}
                                 onClick={() => setMaxDuration(dur)}
                                 className={`transition-all ${maxDuration === dur ? 'text-white scale-110 border-b-2 border-white pb-1' : ''}`}
                             >
-                                {dur === 600 ? '10 min' : dur === 180 ? '3 min' : dur + ' s'}
+                                {dur === 120 ? '2 min' : dur + ' s'}
                             </button>
                         ))}
                     </div>
