@@ -27,8 +27,27 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setVideoBlob(e.target.files[0]);
-      setStep('FINALIZE');
+      const file = e.target.files[0];
+
+      // Basic size check (optional but good practice)
+      if (file.size > 100 * 1024 * 1024) { // 100MB limit
+        alert('El archivo es demasiado grande. Máximo 100MB.');
+        return;
+      }
+
+      // Check duration
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        if (video.duration > 185) { // Allowing constant 5s buffer
+          alert('El video no puede durar más de 3 minutos.');
+        } else {
+          setVideoBlob(file);
+          setStep('FINALIZE');
+        }
+      };
+      video.src = URL.createObjectURL(file);
     }
   };
 
@@ -66,7 +85,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
           <>
             <div className="text-center mb-10">
               <h2 className="text-2xl font-black tracking-tight mb-2 uppercase italic tracking-tighter">ZENTOK CREAR</h2>
-              <p className="text-zinc-500 text-sm">Suelta tu miedo, sube tu video.</p>
+              <p className="text-zinc-500 text-sm">Videos de hasta 3 minutos.</p>
             </div>
 
             <div className="space-y-4">

@@ -7,7 +7,7 @@ interface CameraRecorderProps {
 }
 
 type RecordingState = 'idle' | 'recording' | 'paused' | 'review';
-type DurationOption = 15 | 60 | 600; // seconds
+type DurationOption = 15 | 60 | 180 | 600; // seconds
 
 export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCancel }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -15,11 +15,15 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
     const [recordingState, setRecordingState] = useState<RecordingState>('idle');
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
-    const [maxDuration, setMaxDuration] = useState<DurationOption>(600);
+    const [maxDuration, setMaxDuration] = useState<DurationOption>(180);
     const [recordingTime, setRecordingTime] = useState(0);
     const [segments, setSegments] = useState<Blob[]>([]);
     const timerRef = useRef<number | null>(null);
     const currentChunksRef = useRef<Blob[]>([]);
+    const [audioLevel, setAudioLevel] = useState(0);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
+    const animationFrameRef = useRef<number | null>(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -35,11 +39,15 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                 const constraints = {
                     video: {
                         facingMode: { ideal: facingMode },
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
+                        width: { ideal: 1080 },
+                        height: { ideal: 1920 }, // Vertical high res
                         frameRate: { ideal: 30 }
                     },
-                    audio: true
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    }
                 };
 
                 const newStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -48,9 +56,29 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                     setStream(newStream);
                     if (videoRef.current) {
                         videoRef.current.srcObject = newStream;
-                        // Use muted on preview to avoid feedback loops
                         videoRef.current.muted = true;
                     }
+
+                    // Audio Analysis for feedback
+                    const audioContext = new AudioContext();
+                    const source = audioContext.createMediaStreamSource(newStream);
+                    const analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 256;
+                    source.connect(analyser);
+
+                    audioContextRef.current = audioContext;
+                    analyserRef.current = analyser;
+
+                    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    const updateAudioLevel = () => {
+                        if (analyserRef.current) {
+                            analyserRef.current.getByteFrequencyData(dataArray);
+                            const average = dataArray.reduce((acc, val) => acc + val, 0) / dataArray.length;
+                            setAudioLevel(Math.min(100, (average / 128) * 100));
+                            animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
+                        }
+                    };
+                    updateAudioLevel();
                 } else {
                     newStream.getTracks().forEach(t => t.stop());
                 }
@@ -72,6 +100,8 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
 
         return () => {
             isMounted = false;
+            if (audioContextRef.current) audioContextRef.current.close();
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
         };
     }, [facingMode]);
 
@@ -86,11 +116,20 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
 
         currentChunksRef.current = [];
         // Support for more devices with fallbacks
-        let options: MediaRecorderOptions = { mimeType: 'video/webm;codecs=vp9,opus' };
+        let options: MediaRecorderOptions = {
+            mimeType: 'video/webm;codecs=vp9,opus',
+            videoBitsPerSecond: 2500000 // 2.5 Mbps is good for mobile
+        };
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-            options = { mimeType: 'video/webm;codecs=vp8,opus' };
+            options = {
+                mimeType: 'video/webm;codecs=vp8,opus',
+                videoBitsPerSecond: 2500000
+            };
             if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options = { mimeType: 'video/mp4' };
+                options = {
+                    mimeType: 'video/mp4',
+                    videoBitsPerSecond: 2500000
+                };
             }
         }
 
@@ -208,7 +247,16 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                     </svg>
                 </button>
 
-                <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-2xl font-black text-[10px] tracking-widest flex items-center space-x-2 border border-white/10 uppercase">
+                <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-2xl font-black text-[10px] tracking-widest flex items-center space-x-3 border border-white/10 uppercase">
+                    <div className="flex items-center space-x-1 h-3">
+                        {[1, 2, 3].map(i => (
+                            <div
+                                key={i}
+                                className="w-0.5 bg-yellow-400 rounded-full transition-all duration-75"
+                                style={{ height: `${Math.max(10, audioLevel * (0.3 + i * 0.2))}%` }}
+                            />
+                        ))}
+                    </div>
                     <div className={`w-1.5 h-1.5 rounded-full ${recordingState === 'recording' ? 'bg-red-600 animate-pulse' : 'bg-white/40'}`} />
                     <span className="text-white">{formatTime(recordingTime)} / {formatTime(maxDuration)}</span>
                 </div>
@@ -229,13 +277,13 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                 {/* Duration Selector */}
                 {recordingState === 'idle' && (
                     <div className="flex space-x-8 text-[11px] font-black uppercase tracking-widest text-white/40">
-                        {([600, 60, 15] as const).map(dur => (
+                        {([600, 180, 60, 15] as const).map(dur => (
                             <button
                                 key={dur}
                                 onClick={() => setMaxDuration(dur)}
                                 className={`transition-all ${maxDuration === dur ? 'text-white scale-110 border-b-2 border-white pb-1' : ''}`}
                             >
-                                {dur === 600 ? '10 min' : dur + ' s'}
+                                {dur === 600 ? '10 min' : dur === 180 ? '3 min' : dur + ' s'}
                             </button>
                         ))}
                     </div>

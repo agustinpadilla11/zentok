@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [isInstagramUnlocked, setIsInstagramUnlocked] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const [user, setUser] = useState<UserProfile>({
     username: 'nuevo_usuario',
@@ -320,12 +321,17 @@ const App: React.FC = () => {
       const fileName = `${Date.now()}-${videoFile.name.replace(/\s/g, '_')}`;
       const filePath = `${session.user.id}/${fileName}`;
 
-      console.log("Subiendo archivo a storage:", filePath);
+      setUploadProgress(0);
       const { data: storageData, error: storageError } = await supabase.storage
         .from('videos')
         .upload(filePath, videoFile, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
+          // @ts-ignore - Supabase storage supports this in some versions/environments
+          onUploadProgress: (progress: any) => {
+            const percent = (progress.loaded / progress.total) * 100;
+            setUploadProgress(Math.round(percent));
+          }
         });
 
       if (storageError) {
@@ -371,6 +377,7 @@ const App: React.FC = () => {
       alert("Error al subir: " + msg);
     } finally {
       setIsLoading(false);
+      setUploadProgress(null);
       setActiveTab('profile');
     }
   };
@@ -523,7 +530,17 @@ const App: React.FC = () => {
       {isLoading && (
         <div className="fixed inset-0 z-[150] bg-black/95 flex flex-col items-center justify-center p-6 animate-fade-in">
           <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-white font-bold tracking-widest uppercase text-xs">Cargando ZenTok...</p>
+          <p className="text-white font-bold tracking-widest uppercase text-xs">
+            {uploadProgress !== null ? `Subiendo video: ${uploadProgress}%` : 'Cargando ZenTok...'}
+          </p>
+          {uploadProgress !== null && (
+            <div className="w-48 h-1 bg-white/10 rounded-full mt-4 overflow-hidden">
+              <div
+                className="h-full bg-yellow-400 transition-all duration-300 shadow-[0_0_10px_rgba(250,204,21,0.5)]"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
