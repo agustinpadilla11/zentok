@@ -39,9 +39,9 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({ onCapture, onCan
                 const constraints = {
                     video: {
                         facingMode: { ideal: facingMode },
-                        aspectRatio: { ideal: 9 / 16 },
-                        width: { ideal: 720 },
-                        height: { ideal: 1280 }
+                        // Forcing 1080 width and a native mobile aspect ratio to avoid sensor cropping
+                        width: { ideal: 1080 },
+                        aspectRatio: { ideal: 9 / 19.5 },
                     },
                     audio: {
                         echoCancellation: true,
