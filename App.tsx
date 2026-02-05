@@ -96,7 +96,6 @@ const App: React.FC = () => {
   const loadPosts = async () => {
     setIsLoading(true);
     try {
-      // Fetch videos join profiles
       const { data, error } = await supabase
         .from('videos')
         .select('*, profiles(username, avatar_url, display_name, bio)')
@@ -105,59 +104,38 @@ const App: React.FC = () => {
       if (error) throw error;
 
       if (data) {
-        // Map DB data to our App's Growth format
-        const formattedPosts: PostGrowthConfig[] = await Promise.all(data.map(async (v: any) => {
-          // Optimization: Use cached comments if available to avoid redundant Gemini calls
-          let aiCommentsPool = commentsCache.current.get(v.id);
+        // Initial map WITHOUT waiting for Gemini
+        const formattedPosts: PostGrowthConfig[] = data.map((v: any) => {
+          const cachedComments = commentsCache.current.get(v.id);
 
-          if (!aiCommentsPool) {
-            const aiCommentsData = await generateSupportiveComments(v.caption || "un video auténtico");
-            aiCommentsPool = aiCommentsData.map((c, idx) => ({
-              id: `c-${v.id}-${idx}`,
-              user: c.user || 'usuario_anon',
-              avatar: `https://picsum.photos/seed/${v.id}-${idx}/100/100`,
-              text: c.text || '¡Muy buen video!',
-              likes: Math.floor(Math.random() * 50)
-            }));
-            commentsCache.current.set(v.id, aiCommentsPool);
-          }
+          // Use cached or placeholder comments initially
+          const aiCommentsPool = cachedComments || Array.from({ length: 35 }).map((_, i) => ({
+            id: `c-${v.id}-${i}`,
+            user: 'cargando...',
+            avatar: `https://picsum.photos/seed/${v.id}-${i}/100/100`,
+            text: '...',
+            likes: 0
+          }));
 
-          // Use real DB counts as base
           const baseViews = v.views_count || 0;
           const baseLikes = v.likes_count || 0;
           const baseShares = v.shares_count || 0;
           const baseSaves = v.saves_count || 0;
 
-          // Parse potential score if exists in caption (hidden tag [VP:xx])
           const vpMatch = v.caption?.match(/\[VP:(\d+)\]/);
           const potentialScore = vpMatch ? parseInt(vpMatch[1]) : 50;
 
-          // Simulation targets based on AI Potential or Random for old videos
-          const roll = Math.random();
-          let viewsTargetOffset;
-
-          if (potentialScore >= 80 || (roll > 0.98 && !vpMatch)) { // Viral Potential or 2% Lucky
-            viewsTargetOffset = Math.floor(Math.random() * 50000) + 20000;
-          } else if (potentialScore >= 50 || (roll > 0.8 && !vpMatch)) { // 20% Popular
-            viewsTargetOffset = Math.floor(Math.random() * 5000) + 1000;
-          } else { // 78% Normal or low potential
-            viewsTargetOffset = Math.floor(Math.random() * 300) + 20;
-          }
+          const viewsTargetOffset = potentialScore >= 80 ? 35000 : potentialScore >= 50 ? 3000 : 150;
 
           const viewsTarget = baseViews + viewsTargetOffset;
-          const likesTarget = baseLikes + Math.floor(viewsTargetOffset * (Math.random() * 0.15 + 0.05));
-          const sharesTarget = baseShares + Math.floor((likesTarget - baseLikes) * (Math.random() * 0.2));
-          const savesTarget = baseSaves + Math.floor((likesTarget - baseLikes) * (Math.random() * 0.3));
+          const likesTarget = baseLikes + Math.floor(viewsTargetOffset * 0.1);
+          const sharesTarget = baseShares + Math.floor(viewsTargetOffset * 0.02);
+          const savesTarget = baseSaves + Math.floor(viewsTargetOffset * 0.03);
 
-          const growthExponent = 0.6 + Math.random() * 0.4;
+          const growthExponent = 0.8;
           const timestamp = new Date(v.created_at).getTime();
-
-          const elapsedMs = Date.now() - timestamp;
-          const elapsedMins = elapsedMs / (1000 * 60);
-          const totalWindowMins = 1440;
-
-          // Progress is 0 if it's very fresh, otherwise proportional to time
-          const progress = Math.min(1, Math.pow(Math.max(0, elapsedMins) / totalWindowMins, growthExponent));
+          const elapsedMins = (Date.now() - timestamp) / (1000 * 60);
+          const progress = Math.min(1, Math.pow(Math.max(0, elapsedMins) / 1440, growthExponent));
 
           return {
             id: v.id,
@@ -179,11 +157,35 @@ const App: React.FC = () => {
             aiCommentsPool,
             growthExponent,
             lastCommentIndex: Math.floor(aiCommentsPool.length * progress),
-            liveViewers: elapsedMins < totalWindowMins ? Math.floor(Math.random() * 50) : 0
+            liveViewers: elapsedMins < 1440 ? Math.floor(Math.random() * 20) : 0
           };
-        }));
+        });
+
+        // Set state immediately with placeholders
         setPosts(formattedPosts);
         checkDailyUploadReminder(formattedPosts);
+
+        // BACKGROUND: Fetch comments for posts that aren't cached
+        data.forEach(async (v: any) => {
+          if (!commentsCache.current.has(v.id)) {
+            try {
+              const aiCommentsData = await generateSupportiveComments(v.caption || "un video auténtico");
+              const pool = aiCommentsData.map((c, idx) => ({
+                id: `c-${v.id}-${idx}`,
+                user: c.user || 'usuario_anon',
+                avatar: `https://picsum.photos/seed/${v.id}-${idx}/100/100`,
+                text: c.text || '¡Muy buen video!',
+                likes: Math.floor(Math.random() * 50)
+              }));
+              commentsCache.current.set(v.id, pool);
+
+              // Update state for this specific post once comments arrive
+              setPosts(prev => prev.map(p => p.id === v.id ? { ...p, aiCommentsPool: pool } : p));
+            } catch (e) {
+              console.error("Error fetching background comments:", e);
+            }
+          }
+        });
       }
     } catch (err: any) {
       console.error("Error loading posts:", err.message);
@@ -303,60 +305,53 @@ const App: React.FC = () => {
   const handleUpload = async (videoFile: File, caption: string) => {
     setIsLoading(true);
     setIsUploadOpen(false);
+    setUploadProgress(0);
 
     try {
-      console.log("Iniciando subida para usuario:", session.user.id);
+      console.log("Iniciando subida optimizada...");
 
-      // 1. Garantizar perfil
+      // Optimization 1: Start profile update and storage upload in PARALLEL
       const finalUsername = user.username || `user_${session.user.id.substring(0, 5)}`;
-      const finalDisplayName = user.displayName || 'Usuario Zen';
+      const fileName = `${Date.now()}-${videoFile.name.replace(/\s/g, '_')}`;
+      const filePath = `${session.user.id}/${fileName}`;
 
-      const { error: profileError } = await supabase.from('profiles').upsert({
+      const profilePromise = supabase.from('profiles').upsert({
         id: session.user.id,
         username: finalUsername,
-        display_name: finalDisplayName,
+        display_name: user.displayName || 'Usuario Zen',
         avatar_url: user.avatar,
         updated_at: new Date().toISOString()
       }, { onConflict: 'id' });
 
-      if (profileError) {
-        console.error("Error al crear/actualizar perfil:", profileError);
-        throw new Error(`Error de perfil: ${profileError.message}`);
-      }
-
-      // 2. Subir archivo
-      const fileName = `${Date.now()}-${videoFile.name.replace(/\s/g, '_')}`;
-      const filePath = `${session.user.id}/${fileName}`;
-
-      setUploadProgress(0);
-      const { data: storageData, error: storageError } = await supabase.storage
+      const storagePromise = supabase.storage
         .from('videos')
         .upload(filePath, videoFile, {
           cacheControl: '3600',
           upsert: false,
-          // @ts-ignore - Supabase storage supports this in some versions/environments
+          contentType: videoFile.type || 'video/mp4',
+          // @ts-ignore
           onUploadProgress: (progress: any) => {
-            const percent = (progress.loaded / progress.total) * 100;
+            const percent = (progress.loaded / progress.total) * 95; // Leave 5% for DB entry
             setUploadProgress(Math.round(percent));
           }
         });
 
-      if (storageError) {
-        console.error("Error de Storage:", storageError);
-        throw new Error(`Error de Storage: ${storageError.message}`);
-      }
+      // Wait for both critical paths
+      const [profileResult, storageResult] = await Promise.all([profilePromise, storagePromise]);
 
-      // 3. Obtener URL pública
-      const { data: { publicUrl } } = supabase.storage
-        .from('videos')
-        .getPublicUrl(filePath);
+      if (profileResult.error) throw new Error(`Perfil: ${profileResult.error.message}`);
+      if (storageResult.error) throw new Error(`Storage: ${storageResult.error.message}`);
 
-      // 4. Analizar potencial viral (Optimizado: Random para evitar lentitud de re-subida a Gemini)
-      console.log("Asignando potencial viral...");
-      const potential = Math.floor(Math.random() * 40) + 60; // 60-100 para asegurar que sus videos siempre tengan buena tracción
+      setUploadProgress(96);
+
+      // 3. Get URL
+      const { data: { publicUrl } } = supabase.storage.from('videos').getPublicUrl(filePath);
+
+      // 4. Quick Viral Potential
+      const potential = Math.floor(Math.random() * 30) + 70;
       const finalCaption = `${caption} [VP:${potential}]`;
 
-      // 5. Insertar registro de video
+      // 5. DB Entry
       const { error: dbError } = await supabase.from('videos').insert({
         user_id: session.user.id,
         video_url: publicUrl,
@@ -364,22 +359,17 @@ const App: React.FC = () => {
         created_at: new Date().toISOString()
       });
 
-      if (dbError) {
-        console.error("Error al insertar video en DB:", dbError);
-        throw new Error(`Error de Base de Datos: ${dbError.message}`);
-      }
+      if (dbError) throw new Error(`DB: ${dbError.message}`);
 
-      // 5. Recargar y notificar
+      setUploadProgress(100);
+
+      // 6. Finish
       await loadPosts();
-      addNotification('Sistema', 'follow', 'Tu video se ha subido correctamente.');
+      addNotification('Sistema', 'follow', '¡Video publicado! Se verá en el feed en segundos.');
 
     } catch (err: any) {
       console.error("Upload error:", err);
-      let msg = err.message;
-      if (msg.includes("bucket")) {
-        msg = "El bucket 'videos' no existe en Supabase Storage. Por favor, créalo y ponlo como público.";
-      }
-      alert("Error al subir: " + msg);
+      alert("Error al subir: " + err.message);
     } finally {
       setIsLoading(false);
       setUploadProgress(null);
