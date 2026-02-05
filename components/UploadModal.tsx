@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { CameraRecorder } from './CameraRecorder';
 
@@ -13,6 +12,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
   const [step, setStep] = useState<Step>('SELECT');
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [caption, setCaption] = useState('');
+  const [fileSizeStr, setFileSizeStr] = useState<string>('');
+  const [isLargeFile, setIsLargeFile] = useState(false);
 
   const videoPreviewUrl = React.useMemo(() => {
     if (!videoBlob) return '';
@@ -29,18 +30,20 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
 
-      // Basic size check (optional but good practice)
-      if (file.size > 100 * 1024 * 1024) { // 100MB limit
-        alert('El archivo es demasiado grande. Máximo 100MB.');
+      const sizeMB = file.size / (1024 * 1024);
+      setFileSizeStr(`${sizeMB.toFixed(1)} MB`);
+      setIsLargeFile(sizeMB > 15);
+
+      if (file.size > 200 * 1024 * 1024) {
+        alert('El archivo es demasiado grande. Máximo 200MB.');
         return;
       }
 
-      // Check duration
       const video = document.createElement('video');
       video.preload = 'metadata';
       video.onloadedmetadata = () => {
         window.URL.revokeObjectURL(video.src);
-        if (video.duration > 125) { // Allowing constant 5s buffer (2 min)
+        if (video.duration > 125) {
           alert('El video no puede durar más de 2 minutos.');
         } else {
           setVideoBlob(file);
@@ -139,8 +142,15 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest ml-4">Pie de foto</label>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center px-2">
+                <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Pie de foto</label>
+                {fileSizeStr && (
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isLargeFile ? 'bg-orange-500/10 text-orange-500' : 'bg-green-500/10 text-green-500'}`}>
+                    {fileSizeStr}
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 value={caption}
@@ -148,6 +158,18 @@ export const UploadModal: React.FC<UploadModalProps> = ({ onUpload, onClose }) =
                 placeholder="¿De qué trata tu video?..."
                 className="w-full bg-zinc-800 border-none rounded-2xl py-4 px-6 text-white text-sm focus:ring-2 focus:ring-yellow-400 transition-all outline-none"
               />
+
+              {isLargeFile && (
+                <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4 flex items-start space-x-3">
+                  <svg className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <p className="text-[11px] text-orange-200/80 leading-relaxed font-medium">
+                    <span className="text-orange-400 font-bold block mb-1">Archivo pesado detectado</span>
+                    Este video tardará en subirse debido a su alta calidad. Te recomendamos usar la <span className="text-white font-bold italic underline cursor-pointer" onClick={() => setStep('RECORD')}>Cámara Zen</span> para subidas instantáneas.
+                  </p>
+                </div>
+              )}
             </div>
 
             <button

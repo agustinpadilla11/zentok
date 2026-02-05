@@ -32,6 +32,7 @@ const App: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [isInstagramUnlocked, setIsInstagramUnlocked] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const commentsCache = React.useRef<Map<string, Comment[]>>(new Map());
 
   const [user, setUser] = useState<UserProfile>({
     username: 'nuevo_usuario',
@@ -106,14 +107,20 @@ const App: React.FC = () => {
       if (data) {
         // Map DB data to our App's Growth format
         const formattedPosts: PostGrowthConfig[] = await Promise.all(data.map(async (v: any) => {
-          const aiCommentsData = await generateSupportiveComments(v.caption || "un video auténtico");
-          const aiCommentsPool = aiCommentsData.map((c, idx) => ({
-            id: `c-${v.id}-${idx}`,
-            user: c.user || 'usuario_anon',
-            avatar: `https://picsum.photos/seed/${v.id}-${idx}/100/100`,
-            text: c.text || '¡Muy buen video!',
-            likes: Math.floor(Math.random() * 50)
-          }));
+          // Optimization: Use cached comments if available to avoid redundant Gemini calls
+          let aiCommentsPool = commentsCache.current.get(v.id);
+
+          if (!aiCommentsPool) {
+            const aiCommentsData = await generateSupportiveComments(v.caption || "un video auténtico");
+            aiCommentsPool = aiCommentsData.map((c, idx) => ({
+              id: `c-${v.id}-${idx}`,
+              user: c.user || 'usuario_anon',
+              avatar: `https://picsum.photos/seed/${v.id}-${idx}/100/100`,
+              text: c.text || '¡Muy buen video!',
+              likes: Math.floor(Math.random() * 50)
+            }));
+            commentsCache.current.set(v.id, aiCommentsPool);
+          }
 
           // Use real DB counts as base
           const baseViews = v.views_count || 0;
